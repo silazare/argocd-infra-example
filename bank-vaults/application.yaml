@@ -22,7 +22,6 @@ spec:
       repoURL: ghcr.io
       targetRevision: 1.22.1
       helm:
-        releaseName: vault-operator
         valueFiles:
           - bank-vaults/helm-values/vault-operator-values.yaml
     - repoURL: 'https://github.com/silazare/argocd-infra-example'
