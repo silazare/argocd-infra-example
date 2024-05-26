@@ -1,0 +1,33 @@
+---
+apiVersion: "vault.banzaicloud.com/v1alpha1"
+kind: "Vault"
+metadata:
+  name: "vault"
+  namespace: "vault"
+spec:
+  size: 1
+  image: "hashicorp/vault:1.14.8"
+  bankVaultsImage: "ghcr.io/bank-vaults/bank-vaults:latest"
+  serviceType: "ClusterIP"
+  config:
+    storage:
+      file:
+        path: /vault/data
+    listener:
+      tcp:
+        address: 0.0.0.0:8200
+        tls_disable: true
+    api_addr: http://vault:8200
+    ui: true
+  unsealer:
+    kubernetes:
+      secretNamespace: "vault"
+      secretName: "vault-unseal-keys"
+      serviceAccount: "default"
+  externalConfig:
+    policies:
+      - name: default
+        rules: |
+          path "sys/mounts" {
+            capabilities = ["create", "read", "update", "delete", "list"]
+          }

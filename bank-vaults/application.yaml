@@ -1,0 +1,29 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vault
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/silazare/argocd-infra-example'
+    targetRevision: HEAD
+    path: vault
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: vault
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+  sources:
+    - chart: vault-operator
+      repoURL: "oci://ghcr.io/bank-vaults/helm-charts"
+      targetRevision: "latest"
+      helm:
+        valueFiles:
+          - bank-vaults/helm-values/vault-operator-values.yaml
+    - repoURL: 'https://github.com/silazare/argocd-infra-example'
+      targetRevision: HEAD
+      path: bank-vaults/manifests
