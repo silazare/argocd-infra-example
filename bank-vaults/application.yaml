@@ -2,14 +2,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: vault
+  name: bank-vaults
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: 'https://github.com/silazare/argocd-infra-example'
     targetRevision: HEAD
-    path: vault
+    path: bank-vaults
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: vault
@@ -22,8 +22,9 @@ spec:
       repoURL: ghcr.io
       targetRevision: 1.22.1
       helm:
+        releaseName: vault-operator
         valueFiles:
-          - bank-vaults/helm-values/vault-operator-values.yaml
+          - helm-values/vault-operator-values.yaml
     - repoURL: 'https://github.com/silazare/argocd-infra-example'
       targetRevision: HEAD
       path: bank-vaults/manifests
