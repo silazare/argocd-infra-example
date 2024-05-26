@@ -18,10 +18,11 @@ spec:
       prune: true
       selfHeal: true
   sources:
-    - chart: vault-operator
-      repoURL: "oci://ghcr.io/bank-vaults/helm-charts"
-      targetRevision: "1.22.1"
+    - chart: bank-vaults/helm-charts/vault-operator
+      repoURL: ghcr.io
+      targetRevision: 1.22.1
       helm:
+        releaseName: vault-operator
         valueFiles:
           - bank-vaults/helm-values/vault-operator-values.yaml
     - repoURL: 'https://github.com/silazare/argocd-infra-example'
