@@ -19,7 +19,7 @@ spec:
       selfHeal: true
   sources:
     # Vault-operator values from Git
-    - repoURL: 'https://git.enterprise.com/enterprise/argocd'
+    - repoURL: 'https://github.com/silazare/argocd-infra-example'
       targetRevision: HEAD
       ref: values
     # Vault-operator Helm Chart from OCI repo
