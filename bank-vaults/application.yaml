@@ -4,21 +4,11 @@ kind: Application
 metadata:
   name: vault
   namespace: argocd
+  finalizers:
+  # To remove pruned resources automatically
+  - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
-  source:
-    repoURL: 'https://github.com/silazare/argocd-infra-example'
-    targetRevision: HEAD
-    path: bank-vaults
-  destination:
-    server: 'https://kubernetes.default.svc'
-    namespace: vault
-  syncPolicy:
-    syncOptions:
-      - CreateNamespace=true
-    automated:
-      prune: true
-      selfHeal: true
   sources:
     # Vault-operator values from Git
     - repoURL: 'https://github.com/silazare/argocd-infra-example'
@@ -35,3 +25,12 @@ spec:
     - repoURL: 'https://github.com/silazare/argocd-infra-example'
       targetRevision: HEAD
       path: bank-vaults/manifests
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: vault
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true
