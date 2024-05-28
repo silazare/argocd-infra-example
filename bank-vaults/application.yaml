@@ -18,12 +18,18 @@ spec:
       prune: true
       selfHeal: true
   sources:
+    # Vault-operator values from Git
+    - repoURL: 'https://git.enterprise.com/enterprise/argocd'
+      targetRevision: HEAD
+      ref: values
+    # Vault-operator Helm Chart from OCI repo
     - chart: bank-vaults/helm-charts/vault-operator
       repoURL: ghcr.io
       targetRevision: 1.22.1
       helm:
         valueFiles:
-          - helm-values/vault-operator-values.yaml
+          - $values/bank-vaults/helm-values/vault-operator-values.yaml
+    # Vault CRD manifest from Git
     - repoURL: 'https://github.com/silazare/argocd-infra-example'
       targetRevision: HEAD
       path: bank-vaults/manifests
