@@ -6,7 +6,7 @@ metadata:
   namespace: "vault"
 spec:
   size: 1
-  image: "hashicorp/vault:1.14.8"
+  image: "docker.io/hashicorp/vault:1.14.8"
   bankVaultsImage: "ghcr.io/bank-vaults/bank-vaults:latest"
   serviceType: "ClusterIP"
   config:
