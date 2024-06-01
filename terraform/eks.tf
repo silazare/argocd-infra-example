@@ -4,7 +4,7 @@
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.11"
+  version = "~> 20.13"
 
   cluster_name    = local.name
   cluster_version = "1.30"
@@ -27,10 +27,20 @@ module "eks" {
           }
         ]
       })
+      most_recent = true
     }
-    eks-pod-identity-agent = {}
-    kube-proxy             = {}
-    vpc-cni                = {}
+    eks-pod-identity-agent = {
+      most_recent = true
+    }
+    kube-proxy = {
+      most_recent = true
+    }
+    vpc-cni = {
+      most_recent = true
+    }
+    aws-ebs-csi-driver = {
+      most_recent = true
+    }
   }
 
   enable_efa_support = true
@@ -82,9 +92,16 @@ module "karpenter" {
   cluster_name = module.eks.cluster_name
 
   # Name needs to match role name passed to the EC2NodeClass
-  node_iam_role_use_name_prefix   = false
-  node_iam_role_name              = local.name
+  node_iam_role_use_name_prefix = false
+  node_iam_role_name            = local.name
+
+  enable_pod_identity             = true
   create_pod_identity_association = true
+
+  # Used to attach additional IAM policies to the Karpenter node IAM role
+  node_iam_role_additional_policies = {
+    AmazonEBSCSIDriverPolicy = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  }
 
   tags = local.tags
 }
