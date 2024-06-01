@@ -196,7 +196,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: vault-file
 spec:
-  storageClassName: "standard"
+  storageClassName: "gp2"
   accessModes:
     - ReadWriteOnce
   resources:
