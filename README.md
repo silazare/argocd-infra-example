@@ -6,6 +6,7 @@
 ```
 k -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 ```
+
 4) Login to cli and init repos:
 ```
 argocd login localhost:8080
@@ -33,7 +34,7 @@ argocd app sync vault
 
 3) Login to Vault UI and retreive root token:
 ```
-kubectl get secret -n default vault-unseal-keys -o jsonpath="{.data.vault-root}" | base64 -d
+k get secret -n default vault-unseal-keys -o jsonpath="{.data.vault-root}" | base64 -d
 ```
 
 4) Login to Vault CLI after port-forward:
@@ -41,4 +42,7 @@ kubectl get secret -n default vault-unseal-keys -o jsonpath="{.data.vault-root}"
 export VAULT_ADDR=http://127.0.0.1:8200
 export VAULT_SKIP_VERIFY=true
 vault status
+
+export VAULT_TOKEN="xxxxx"
+vault kv get secret/mysql
 ```
