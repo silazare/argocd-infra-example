@@ -6,6 +6,10 @@ resource "helm_release" "argocd" {
   version          = "6.11.1"
   create_namespace = true
 
+  values = [
+    file("${path.module}/files/argocd-values.yaml")
+  ]
+
   depends_on = [
     module.eks,
     helm_release.karpenter

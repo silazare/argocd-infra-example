@@ -51,6 +51,7 @@ module "eks" {
   eks_managed_node_groups = {
     karpenter = {
       instance_types = ["t3a.large"]
+      capacity_type  = "SPOT"
 
       min_size     = 2
       max_size     = 3
