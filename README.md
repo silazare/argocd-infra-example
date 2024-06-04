@@ -29,7 +29,7 @@ k apply -f bank-vaults/application.yaml
 
 3) Login to Vault UI and retreive root token:
 ```
-k get secret -n default vault-unseal-keys -o jsonpath="{.data.vault-root}" | base64 -d
+k -n vault get secret vault-unseal-keys -o jsonpath="{.data.vault-root}" | base64 -d
 ```
 
 4) Login to Vault CLI after port-forward:
