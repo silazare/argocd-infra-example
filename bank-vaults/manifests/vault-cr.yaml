@@ -69,7 +69,7 @@ spec:
       # This is 3 by default
       secretThreshold: 3
     kubernetes:
-      secretNamespace: default
+      secretNamespace: vault
 
   # A YAML representation of a final vault config file.
   # See https://www.vaultproject.io/docs/configuration/ for more information.
