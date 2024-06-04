@@ -16,6 +16,7 @@ module "eks" {
 
   cluster_addons = {
     coredns = {
+      most_recent = true
       configuration_values = jsonencode({
         tolerations = [
           # Allow CoreDNS to run on the same nodes as the Karpenter controller
@@ -40,6 +41,19 @@ module "eks" {
     }
     aws-ebs-csi-driver = {
       most_recent = true
+      configuration_values = jsonencode({
+        controller = {
+          tolerations = [
+            # Allow EBS CSI driver to run on the same nodes as the Karpenter controller
+            # for use during cluster creation when Karpenter nodes do not yet exist
+            {
+              key    = "karpenter.sh/controller"
+              value  = "true"
+              effect = "NoSchedule"
+            }
+          ]
+        }
+      })
     }
   }
 
