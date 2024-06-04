@@ -16,18 +16,13 @@ argocd repo add https://github.com/silazare/argocd-infra-example.git --username 
 argocd repo add ghcr.io --type helm --name stable --enable-oci
 ```
 
-## Bank-vaults
+## Bank-vaults (demo example with local vault file unsealer)
 
-1) Create Vault application (best option):
+Also inspired by this (demo)[https://github.com/sagikazarmark/demo-bank-vaults/tree/main]
+
+1) Create Vault application:
 ```
 k apply -f bank-vaults/application.yaml
-```
-
-Or ArgoCD cli option:
-```
-argocd app create vault --repo https://github.com/silazare/argocd-infra-example.git --path bank-vaults --dest-server https://kubernetes.default.svc --dest-namespace vault
-
-argocd app sync vault
 ```
 
 2) Wait until Vault will be synced
@@ -46,3 +41,10 @@ vault status
 export VAULT_TOKEN="xxxxx"
 vault kv get secret/mysql
 ```
+
+5) Deploy demo application and check webhook logs and application POD:
+```
+k apply -f demo-app/.
+```
+
+6) You can retreive secrets inside the container via command: `/vault/vault-env env`

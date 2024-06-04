@@ -19,6 +19,7 @@ spec:
       repoURL: ghcr.io
       targetRevision: 1.22.1
       helm:
+        releaseName: vault-operator
         valueFiles:
           - $values/bank-vaults/helm-values/vault-operator-values.yaml
     # Vault CRD manifest from Git
@@ -29,6 +30,8 @@ spec:
     - chart: bank-vaults/helm-charts/vault-secrets-webhook
       repoURL: ghcr.io
       targetRevision: 1.21.1
+      helm:
+        releaseName: vault-secrets-webhook
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: vault
