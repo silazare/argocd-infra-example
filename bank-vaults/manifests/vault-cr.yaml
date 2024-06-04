@@ -5,7 +5,7 @@ metadata:
   name: "vault"
   namespace: "vault"
 spec:
-  size: 3
+  size: 1
   image: docker.io/hashicorp/vault:1.16.3
   bankVaultsImage: ghcr.io/bank-vaults/bank-vaults:v1.31.0
   statsdImage: docker.io/prom/statsd-exporter:v0.9.0
@@ -126,9 +126,26 @@ spec:
         roles:
           # Allow every pod in the default namespace to use the secret kv store
           - name: default
-            bound_service_account_names: ["default", "secrets-webhook", "vault"]
-            bound_service_account_namespaces: ["default", "vswh"]
+            bound_service_account_names: ["*"]
+            bound_service_account_namespaces: ["default"]
             policies: ["allow_secrets", "allow_pki"]
+            ttl: 1h
+
+          # Allow every pod in the demo namespace to use the secret kv store
+          # Add 'vault.security.banzaicloud.io/vault-role: "demo"' annotation to resources to use this role
+          - name: demo
+            bound_service_account_names: ["*"]
+            bound_service_account_namespaces: ["demo"]
+            policies: ["allow_secrets"]
+            ttl: 1h
+
+          # Allow access for the vault secrets webhook
+          # Necessary to mutate secrets and configmaps
+          # Add 'vault.security.banzaicloud.io/vault-role: "vault-secrets-webhook"' annotation to resources to use this role
+          - name: vault-secrets-webhook
+            bound_service_account_names: ["vault-secrets-webhook"]
+            bound_service_account_namespaces: ["vault"]
+            policies: ["allow_secrets"]
             ttl: 1h
 
     secrets:
