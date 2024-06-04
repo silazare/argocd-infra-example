@@ -25,6 +25,10 @@ spec:
     - repoURL: 'https://github.com/silazare/argocd-infra-example'
       targetRevision: HEAD
       path: bank-vaults/manifests
+    # Vault-secrets-webhook Helm Chart from OCI repo
+    - chart: bank-vaults/helm-charts/vault-secrets-webhook
+      repoURL: ghcr.io
+      targetRevision: 1.21.1
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: vault
