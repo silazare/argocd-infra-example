@@ -1,4 +1,4 @@
-// AWS Load Balancer resources to control AWS LBs
+// AWS Load Balancer resources to control and create AWS LBs
 data "aws_iam_policy_document" "alb_ingress_controller" {
   statement {
     sid       = ""
@@ -323,7 +323,7 @@ data "aws_iam_policy_document" "alb_ingress_controller_assume" {
       variable = "${replace(module.eks.oidc_provider, "https://", "")}:sub"
 
       values = [
-        "system:serviceaccount:kube-system:alb-ingress-controller",
+        "system:serviceaccount:kube-system:aws-load-balancer-controller",
       ]
     }
 
@@ -359,15 +359,59 @@ resource "helm_release" "alb_ingress_controller" {
   version    = "1.8.1"
 
   values = [
-    templatefile("${path.module}/files/alb-ingress-controller-values.yaml.tpl",
-      {
-        aws_region                      = local.region
-        vpc_id                          = module.vpc.vpc_id
-        cluster_name                    = module.eks.cluster_name
-        alb_ingress_controller_role_arn = aws_iam_role.alb_ingress_controller.arn
-      }
-    )
+    <<-EOT
+    replicaCount: 2
+    serviceAccount:
+      create: true
+      annotations:
+        eks.amazonaws.com/role-arn: ${aws_iam_role.alb_ingress_controller.arn}
+    rbac:
+      create: true
+    clusterName: ${module.eks.cluster_name}
+    region: ${local.region}
+    vpcId: ${module.vpc.vpc_id}
+    EOT
   ]
 
   timeout = 360
+
+  depends_on = [
+    module.eks,
+    helm_release.karpenter
+  ]
+}
+
+// Nginx Ingress Controller Helm Chart
+resource "helm_release" "nginx_ingress_controller" {
+  chart            = "ingress-nginx"
+  name             = "controller"
+  repository       = "https://kubernetes.github.io/ingress-nginx"
+  namespace        = "ingress-nginx"
+  create_namespace = true
+  version          = "4.10.1"
+
+  values = [
+    <<-EOT
+    controller:
+      replicaCount: 2
+      service:
+        annotations:
+          service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+          service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+          service.beta.kubernetes.io/aws-load-balancer-security-groups: ${aws_security_group.ingress_nginx_external.id}
+          service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules: true
+        loadBalancerClass: service.k8s.aws/nlb
+      minAvailable: 1
+    serviceAccount:
+      create: true
+      annotations:
+        eks.amazonaws.com/role-arn: ${aws_iam_role.alb_ingress_controller.arn}
+    EOT
+  ]
+
+  timeout = 360
+
+  depends_on = [
+    helm_release.alb_ingress_controller,
+  ]
 }

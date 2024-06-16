@@ -7,7 +7,22 @@ resource "helm_release" "argocd" {
   create_namespace = true
 
   values = [
-    file("${path.module}/files/argocd-values.yaml")
+    <<-EOT
+    redis-ha:
+      enabled: true
+    controller:
+      replicas: 1
+    server:
+      autoscaling:
+        enabled: true
+        minReplicas: 2
+    repoServer:
+      autoscaling:
+        enabled: true
+        minReplicas: 2
+    applicationSet:
+      replicas: 2
+    EOT
   ]
 
   depends_on = [

@@ -24,3 +24,72 @@ module "vpc" {
 
   tags = local.tags
 }
+
+resource "aws_security_group" "ingress_nginx_external" {
+  name        = "ingress-nginx-external"
+  description = "Allow public HTTP and HTTPS traffic"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # modify to your requirements
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # modify to your requirements
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(
+    local.tags,
+    {
+      Name = "ingress-nginx-external",
+    }
+  )
+}
+
+resource "aws_security_group" "ingress_nginx_node" {
+  name        = "ingress-nginx-node"
+  description = "Allow local HTTP and HTTPS traffic for Worker nodes"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = [local.vpc_cidr]
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [local.vpc_cidr]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [local.vpc_cidr]
+  }
+
+  tags = merge(
+    local.tags,
+    {
+      Name                     = "ingress-nginx-node",
+      "karpenter.sh/discovery" = local.name
+    }
+  )
+}
