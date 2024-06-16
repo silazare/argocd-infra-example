@@ -48,3 +48,11 @@ k apply -f demo-app/.
 ```
 
 6) You can retreive secrets inside the container via command: `/vault/vault-env env`
+
+## TODO Roadmap
+
+- Nginx Ingress Controller
+- Bookinfo application
+- Prometheus operator
+- EFK
+- Tracing
