@@ -12,8 +12,8 @@
 
 1) Deploy EKS cluster + Karpenter + ArgoCD with Terraform
 2) Map local domains in `/etc/hosts` with NLB IP address:
-    - argocd.local
-    - vault.local
+  - argocd.local
+  - vault.local
 
 3) Retrieve ArgoCD admin password:
 ```
@@ -45,14 +45,15 @@ k apply -f bank-vaults/application.yaml
 k -n vault get secret vault-unseal-keys -o jsonpath="{.data.vault-root}" | base64 -d
 ```
 
-4) Login to Vault CLI after port-forward:
+4) Login to Vault CLI:
 ```
-export VAULT_ADDR=http://127.0.0.1:8200
+export VAULT_ADDR=http://vault.local
 export VAULT_SKIP_VERIFY=true
 vault status
 
 export VAULT_TOKEN="xxxxx"
 vault kv get secret/mysql
+vault kv get secret/accounts/aws
 ```
 
 5) Deploy demo application and check webhook logs and application POD:
