@@ -38,6 +38,26 @@ spec:
   # forces you to expose your Service on a NodePort
   serviceType: ClusterIP
 
+  # Request an Ingress controller with the default configuration
+  ingress:
+    annotations:
+      alb.ingress.kubernetes.io/ssl-passthrough: "true"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    spec:
+      ingressClassName: nginx
+      rules:
+      - host: vault.local
+        http:
+          paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: vault
+                port:
+                  number: 8200
+
   # Use local disk to store Vault file data, see config section.
   volumes:
     - name: vault-file

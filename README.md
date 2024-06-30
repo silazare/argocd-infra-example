@@ -8,10 +8,13 @@
 - Kube-Prometheus-Stack - Metrics
 - Trivy Operator - Security
 
-## ArgoCD
+## ArgoCD deploy
 
 1) Deploy EKS cluster + Karpenter + ArgoCD with Terraform
-2) Create ArgoCD applications
+2) Map local domains in `/etc/hosts` with NLB IP address:
+    - argocd.local
+    - vault.local
+
 3) Retrieve ArgoCD admin password:
 ```
 k -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
@@ -19,14 +22,14 @@ k -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}
 
 4) Login to cli and init repos:
 ```
-argocd login localhost:8080
+argocd login argocd.local:443
 
 argocd repo add https://github.com/silazare/argocd-infra-example.git --username silazare --password github_pat_xxxxx
 
 argocd repo add ghcr.io --type helm --name stable --enable-oci
 ```
 
-## Bank-vaults (demo example with local vault file unsealer)
+## Bank-vaults deploy (demo example with local vault file unsealer)
 
 Also inspired by this (demo)[https://github.com/sagikazarmark/demo-bank-vaults/tree/main]
 
