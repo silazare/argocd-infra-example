@@ -1,4 +1,14 @@
-# ArgoCD infra example
+# Infra Components
+- Karpenter - EC2 nodes management
+- ArgoCD - GitOps
+- Hashicorp Vault + Bank Vaults Operator - Secrets management
+- Nginx Ingress Controller - Ingress
+- Loki + Promtail - Logging
+- Banzai Logging operator - Logging
+- Kube-Prometheus-Stack - Metrics
+- Trivy Operator - Security
+
+## ArgoCD
 
 1) Deploy EKS cluster + Karpenter + ArgoCD with Terraform
 2) Create ArgoCD applications
@@ -48,11 +58,3 @@ k apply -f demo-app/.
 ```
 
 6) You can retreive secrets inside the container via command: `/vault/vault-env env`
-
-## TODO Roadmap
-
-- Nginx Ingress Controller
-- Bookinfo application
-- Prometheus operator
-- EFK
-- Tracing
