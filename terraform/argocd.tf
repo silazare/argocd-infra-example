@@ -3,7 +3,7 @@ resource "helm_release" "argocd" {
   repository       = "https://argoproj.github.io/argo-helm"
   chart            = "argo-cd"
   namespace        = "argocd"
-  version          = "6.11.1"
+  version          = local.argocd_version
   create_namespace = true
 
   values = [
@@ -31,47 +31,34 @@ resource "helm_release" "argocd" {
   ]
 }
 
-resource "kubernetes_manifest" "argocd_ingress" {
-  manifest = {
-    "apiVersion" = "networking.k8s.io/v1"
-    "kind"       = "Ingress"
-    "metadata" = {
-      "annotations" = {
-        "alb.ingress.kubernetes.io/ssl-passthrough"      = "true"
-        "nginx.ingress.kubernetes.io/backend-protocol"   = "HTTPS"
-        "nginx.ingress.kubernetes.io/force-ssl-redirect" = "false"
-      }
-      "name"      = "argocd-server-ingress"
-      "namespace" = "argocd"
-    }
-    "spec" = {
-      "ingressClassName" = "nginx"
-      "rules" = [
-        {
-          "host" = "argocd.local"
-          "http" = {
-            "paths" = [
-              {
-                "backend" = {
-                  "service" = {
-                    "name" = "argocd-server"
-                    "port" = {
-                      "number" = 443
-                    }
-                  }
-                }
-                "path"     = "/"
-                "pathType" = "Prefix"
-              },
-            ]
-          }
-        },
-      ]
-    }
-  }
+resource "kubectl_manifest" "argocd_ingress" {
+  yaml_body = <<EOF
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server-ingress
+  namespace: argocd
+  annotations:
+    alb.ingress.kubernetes.io/ssl-passthrough: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: argocd.local
+    http:
+      paths:
+      - pathType: Prefix
+        path: /
+        backend:
+          service:
+            name: argocd-server
+            port:
+              number: 443
+EOF
 
   depends_on = [
-    module.eks,
-    helm_release.argocd
+    helm_release.argocd,
+    helm_release.nginx_ingress_controller
   ]
 }

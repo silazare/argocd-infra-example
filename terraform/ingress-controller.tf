@@ -356,7 +356,7 @@ resource "helm_release" "alb_ingress_controller" {
   chart      = "aws-load-balancer-controller"
   repository = "https://aws.github.io/eks-charts"
   namespace  = "kube-system"
-  version    = "1.8.1"
+  version    = local.aws_load_balancer_controller_version
 
   values = [
     <<-EOT
@@ -388,7 +388,7 @@ resource "helm_release" "nginx_ingress_controller" {
   repository       = "https://kubernetes.github.io/ingress-nginx"
   namespace        = "ingress-nginx"
   create_namespace = true
-  version          = "4.10.1"
+  version          = local.nginx_ingress_controller_version
 
   values = [
     <<-EOT

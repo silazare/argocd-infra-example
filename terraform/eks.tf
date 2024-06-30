@@ -7,7 +7,7 @@ module "eks" {
   version = "~> 20.15"
 
   cluster_name    = local.name
-  cluster_version = "1.30"
+  cluster_version = local.cluster_version
 
   # Give the Terraform identity admin access to the cluster
   # which will allow it to deploy resources into the cluster
@@ -106,7 +106,7 @@ module "eks" {
 
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "~> 20.11"
+  version = "~> 20.15"
 
   cluster_name = module.eks.cluster_name
 
