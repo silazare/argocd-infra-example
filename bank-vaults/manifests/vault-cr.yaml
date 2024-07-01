@@ -70,15 +70,11 @@ spec:
                 port:
                   number: 8200
 
-  # Use PV disk to store Vault file data
   # Use local disk to store Vault raft data
   volumes:
     - name: vault-file
       persistentVolumeClaim:
         claimName: vault-file
-    - name: vault-raft
-      hostPath:
-        path: /vault/raft
 
   volumeMounts:
     - name: vault-file
@@ -104,6 +100,7 @@ spec:
     - metadata:
         name: vault-raft
       spec:
+        storageClassName: "local-storage"
         accessModes:
           - ReadWriteOnce
         volumeMode: Filesystem
