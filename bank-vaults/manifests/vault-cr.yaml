@@ -82,6 +82,19 @@ spec:
     - name: vault-raft
       mountPath: /vault/raft
 
+  # Set permissions for the raft directory for local disk hostPath
+  vaultInitContainers:
+    - name: raft-permission
+      image: busybox
+      command:
+        - /bin/sh
+        - -c
+        - |
+          chown -R 100:1000 /vault/raft
+      volumeMounts:
+        - name: vault-raft
+          mountPath: /vault/raft
+
   # Use local disk to store Vault file data, see config section.
   volumeClaimTemplates:
     - metadata:
