@@ -5,7 +5,7 @@ metadata:
   name: "vault"
   namespace: "vault"
 spec:
-  size: 2
+  size: 1
   image: docker.io/hashicorp/vault:1.16.3
   bankVaultsImage: ghcr.io/bank-vaults/bank-vaults:v1.31.0
   statsdImage: docker.io/prom/statsd-exporter:v0.9.0
@@ -29,18 +29,6 @@ spec:
   # Vault Configurer Pods and Services labels
   vaultConfigurerLabels:
     example.com/log-format: "string"
-
-  # Schedule the pods on the same node, since we are using hostPath storage
-  affinity:
-    podAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchExpressions:
-          - key: app.kubernetes.io/name
-            operator: In
-            values:
-            - vault
-        topologyKey: "kubernetes.io/hostname"
 
   # Specify the ServiceAccount where the Vault Pod and the Bank-Vaults configurer/unsealer is running
   serviceAccount: vault
@@ -70,33 +58,15 @@ spec:
                 port:
                   number: 8200
 
-  # Use local disk to store Vault raft data
+  # Use local disk to store Vault file data, see config section.
   volumes:
     - name: vault-file
       persistentVolumeClaim:
         claimName: vault-file
-    - name: vault-raft
-      hostPath:
-        path: /vault/raft
 
   volumeMounts:
     - name: vault-file
       mountPath: /vault/file
-    - name: vault-raft
-      mountPath: /vault/raft
-
-  # Set permissions for the raft directory for local disk hostPath
-  vaultInitContainers:
-    - name: raft-permission
-      image: busybox
-      command:
-        - /bin/sh
-        - -c
-        - |
-          chown -R 100:1000 /vault/raft
-      volumeMounts:
-        - name: vault-raft
-          mountPath: /vault/raft
 
   # Support for distributing the generated CA certificate Secret to other namespaces.
   # Define a list of namespaces or use ["*"] for all namespaces.
@@ -127,9 +97,6 @@ spec:
     storage:
       file:
         path: "${ .Env.VAULT_STORAGE_FILE }" # An example how Vault config environment interpolation can be used
-    ha_storage:
-      raft:
-        path: "${ .Env.VAULT_HA_STORAGE_FILE }" # An example how Vault config environment interpolation can be used
     listener:
       tcp:
         address: "0.0.0.0:8200"
@@ -139,8 +106,6 @@ spec:
         tls_key_file: /vault/tls/server.key
     # telemetry:
     #   statsd_address: localhost:9125
-    api_addr: https://vault.default:8200
-    cluster_addr: "https://${.Env.POD_NAME}:8201"
     ui: true
 
   # See: https://banzaicloud.com/docs/bank-vaults/cli-tool/#example-external-vault-configuration
@@ -258,13 +223,6 @@ spec:
       value: debug
     - name: VAULT_STORAGE_FILE
       value: "/vault/file"
-    - name: VAULT_HA_STORAGE_FILE
-      value: "/vault/raft"
-
-  # serviceRegistrationEnabled enables the injection of the service_registration Vault stanza.
-  # this requires elaborated RBAC privileges for updating Pod labels for the Vault Pod.
-  # default: false
-  serviceRegistrationEnabled: true
 
   # Marks presence of Istio, which influences things like port namings
   istioEnabled: false
@@ -281,3 +239,17 @@ spec:
   resources:
     requests:
       storage: 1Gi
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: vault-file
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Recycle
+  hostPath:
+    path: /vault/file
