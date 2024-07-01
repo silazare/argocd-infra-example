@@ -58,7 +58,6 @@ spec:
                 port:
                   number: 8200
 
-  # Use local disk to store Vault file data, see config section.
   volumes:
     - name: vault-file
       persistentVolumeClaim:
@@ -72,6 +71,19 @@ spec:
       mountPath: /vault/file
     - name: vault-raft
       mountPath: /vault/raft
+
+  # Set permissions for the raft directory
+  vaultInitContainers:
+    - name: raft-permission
+      image: busybox
+      command:
+        - /bin/sh
+        - -c
+        - |
+          chmod -R 600 /vault/raft
+      volumeMounts:
+        - name: vault-raft
+          mountPath: /vault/raft
 
   # Support for distributing the generated CA certificate Secret to other namespaces.
   # Define a list of namespaces or use ["*"] for all namespaces.
