@@ -30,6 +30,18 @@ spec:
   vaultConfigurerLabels:
     example.com/log-format: "string"
 
+  # Schedule the pods on the same node, since we are using hostPath storage
+  affinity:
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - vault
+        topologyKey: "kubernetes.io/hostname"
+
   # Specify the ServiceAccount where the Vault Pod and the Bank-Vaults configurer/unsealer is running
   serviceAccount: vault
 
@@ -58,13 +70,11 @@ spec:
                 port:
                   number: 8200
 
+  # Use local disk to store Vault file data, see config section.
   volumes:
     - name: vault-file
       persistentVolumeClaim:
         claimName: vault-file
-    - name: vault-raft
-      persistentVolumeClaim:
-        claimName: vault-raft
 
   volumeMounts:
     - name: vault-file
@@ -72,7 +82,7 @@ spec:
     - name: vault-raft
       mountPath: /vault/raft
 
-  # Set permissions for the raft directory
+  # Set permissions for the raft directory for local disk hostPath
   vaultInitContainers:
     - name: raft-permission
       image: busybox
@@ -80,10 +90,24 @@ spec:
         - /bin/sh
         - -c
         - |
-          chmod -R 600 /vault/raft
+          chown -R 100:1000 /vault/raft
       volumeMounts:
         - name: vault-raft
           mountPath: /vault/raft
+
+  # Use local disk to store Vault file data, see config section.
+  volumeClaimTemplates:
+    - metadata:
+        name: vault-raft
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        volumeMode: Filesystem
+        hostPath:
+          path: "/vault/raft"
+        resources:
+          requests:
+            storage: 1Gi
 
   # Support for distributing the generated CA certificate Secret to other namespaces.
   # Define a list of namespaces or use ["*"] for all namespaces.
@@ -282,30 +306,3 @@ spec:
   persistentVolumeReclaimPolicy: Recycle
   hostPath:
     path: /vault/file
-
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: vault-raft
-spec:
-  storageClassName: "gp3"
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
-
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: vault-raft
-spec:
-  capacity:
-    storage: 1Gi
-  accessModes:
-  - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Recycle
-  hostPath:
-    path: /vault/raft
