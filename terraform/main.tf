@@ -22,8 +22,8 @@ locals {
     Owner      = "slazarev"
   }
 
-  argocd_version                       = "6.11.1"
-  aws_load_balancer_controller_version = "1.8.1"
+  argocd_version                       = "7.4.3"
+  aws_load_balancer_controller_version = "1.8.2"
   karpenter_version                    = "0.37.0"
-  nginx_ingress_controller_version     = "4.10.1"
+  nginx_ingress_controller_version     = "4.11.1"
 }

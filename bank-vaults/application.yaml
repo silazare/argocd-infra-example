@@ -17,7 +17,7 @@ spec:
     # Vault-operator Helm Chart from OCI repo
     - chart: bank-vaults/helm-charts/vault-operator
       repoURL: ghcr.io
-      targetRevision: 1.22.1
+      targetRevision: 1.22.2
       helm:
         releaseName: vault-operator
         valueFiles:
@@ -29,7 +29,7 @@ spec:
     # Vault-secrets-webhook Helm Chart from OCI repo
     - chart: bank-vaults/helm-charts/vault-secrets-webhook
       repoURL: ghcr.io
-      targetRevision: 1.21.1
+      targetRevision: 1.21.2
       helm:
         releaseName: vault-secrets-webhook
   destination:

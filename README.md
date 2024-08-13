@@ -7,6 +7,7 @@
 - Banzai Logging operator - Logging
 - Kube-Prometheus-Stack - Metrics
 - Trivy Operator - Security
+- Kyverno - Security
 
 ## ArgoCD deploy
 
