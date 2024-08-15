@@ -5,8 +5,9 @@ metadata:
   name: vault
   namespace: argocd
   finalizers:
-  # To remove pruned resources automatically
-  # - resources-finalizer.argocd.argoproj.io
+  # Finalizer that ensures that project is not deleted until it is not referenced by any application
+  # https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Application-Deletion/
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   sources:

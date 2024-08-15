@@ -5,7 +5,7 @@ metadata:
   name: "vault"
   namespace: "vault"
 spec:
-  size: 3
+  size: 1
   image: docker.io/hashicorp/vault:1.17.3
   bankVaultsImage: ghcr.io/bank-vaults/bank-vaults:v1.31.1
   statsdImage: docker.io/prom/statsd-exporter:v0.9.0
@@ -60,17 +60,17 @@ spec:
 
   # Use local disk to store Vault file data, see config section.
   volumes:
-    - name: vault-raft
+    - name: vault-file
       persistentVolumeClaim:
-        claimName: vault-raft
+        claimName: vault-file
 
   volumeMounts:
-    - name: vault-raft
-      mountPath: /vault/raft
+    - name: vault-file
+      mountPath: /vault/file
 
   volumeClaimTemplates:
     - metadata:
-        name: vault-raft
+        name: vault-file
       spec:
         storageClassName: "gp3"
         accessModes:
@@ -106,7 +106,7 @@ spec:
   # See https://www.vaultproject.io/docs/configuration/ for more information.
   config:
     storage:
-      raft:
+      file:
         path: "${ .Env.VAULT_STORAGE_FILE }" # An example how Vault config environment interpolation can be used
     listener:
       tcp:
@@ -235,10 +235,7 @@ spec:
     - name: VAULT_LOG_LEVEL
       value: debug
     - name: VAULT_STORAGE_FILE
-      value: "/vault/raft"
+      value: "/vault/file"
 
   # Marks presence of Istio, which influences things like port namings
   istioEnabled: false
-
-  # Enable service registration for HA
-  serviceRegistrationEnabled: true
