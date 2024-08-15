@@ -14,7 +14,7 @@ spec:
     # App manifest from Git
     - repoURL: 'https://github.com/silazare/argocd-infra-example'
       targetRevision: HEAD
-      path: bookinfo-app/manifests
+      path: hipster-app/manifests
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: default

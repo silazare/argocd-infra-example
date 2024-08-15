@@ -15,6 +15,7 @@
 2) Map local domains in `/etc/hosts` with NLB IP address:
   - argocd.local
   - vault.local
+  - hipster.local
 
 3) Retrieve ArgoCD admin password:
 ```
@@ -63,3 +64,17 @@ k apply -f demo-app/.
 ```
 
 6) You can retreive secrets inside the container via command: `/vault/vault-env env`
+
+## Hipster demo app deploy (without Istio)
+
+1) Create Vault application:
+```
+k apply -f hipster-app/application.yaml
+```
+
+2) Wait until app will be synced
+
+3) Login to Frontend UI and make sure app is working fine:
+```
+http://hipster.local/
+```
