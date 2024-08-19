@@ -16,6 +16,8 @@
   - argocd.local
   - vault.local
   - hipster.local
+  - grafana.local
+  - prometheus.local
 
 3) Retrieve ArgoCD admin password:
 ```
@@ -64,6 +66,25 @@ k apply -f demo-app/.
 ```
 
 6) You can retreive secrets inside the container via command: `/vault/vault-env env`
+
+## Kube-prometheus-stack deploy
+
+1) Create Kube-prometheus-stack application:
+```
+k apply -f kube-prometheus-stack/application.yaml
+```
+
+2) Wait until app will be synced
+
+3) Retrieve Grafana admin password:
+```
+k -n monitoring get secret kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 -d
+```
+
+4) Login to Grafana:
+```
+http://grafana.local/
+```
 
 ## Hipster demo app deploy (without Istio)
 
