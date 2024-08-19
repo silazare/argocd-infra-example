@@ -1,0 +1,35 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  finalizers:
+  # Finalizer that ensures that project is not deleted until it is not referenced by any application
+  # https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Application-Deletion/
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    # Kube-prometheus-stack values from Git
+    - repoURL: 'https://github.com/silazare/argocd-infra-example'
+      targetRevision: HEAD
+      ref: values
+    # Kube-prometheus-stack Helm Chart from OCI repo
+    - chart: kube-prometheus-stack
+      repoURL: 'https://prometheus-community.github.io/helm-charts'
+      targetRevision: 61.9.0
+      helm:
+        releaseName: kube-prometheus
+        valueFiles:
+          - $values/bank-vaults/helm-values/kube-prometheus-stack-values.yaml
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

@@ -1,0 +1,23 @@
+---
+grafana:
+  ingress:
+    annotations:
+      alb.ingress.kubernetes.io/ssl-passthrough: "true"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+    - grafana.local
+    path: /
+prometheus:
+  ingress:
+    annotations:
+      alb.ingress.kubernetes.io/ssl-passthrough: "true"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+    - prometheus.local
+    path: /
