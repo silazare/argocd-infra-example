@@ -1,13 +1,13 @@
 # Infra Components
-- Karpenter - EC2 nodes management
-- ArgoCD - GitOps
-- Hashicorp Vault + Bank Vaults Operator - Secrets management
-- Nginx Ingress Controller - Ingress
-- Loki + Promtail - Logging
-- Banzai Logging operator - Logging
-- Kube-Prometheus-Stack - Metrics
-- Trivy Operator - Security
-- Kyverno - Security
+- [x] Karpenter - EC2 nodes management
+- [x] ArgoCD - GitOps
+- [x] Hashicorp Vault + Bank Vaults Operator - Secrets management
+- [x] Nginx Ingress Controller - Ingress
+- [ ] Loki + Promtail - Logging
+- [ ] Banzai Logging operator - Logging
+- [ ] Kube-Prometheus-Stack - Metrics
+- [ ] Trivy Operator - Security
+- [ ] Kyverno - Security
 
 ## ArgoCD deploy
 

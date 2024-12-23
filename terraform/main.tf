@@ -10,7 +10,7 @@ data "aws_availability_zones" "available" {}
 
 locals {
   name            = "ireland-test-cluster"
-  cluster_version = "1.30"
+  cluster_version = "1.31"
   region          = "eu-west-1"
 
   vpc_cidr = "10.0.0.0/16"
@@ -22,8 +22,8 @@ locals {
     Owner      = "slazarev"
   }
 
-  argocd_version                       = "7.4.3"
-  aws_load_balancer_controller_version = "1.8.2"
-  karpenter_version                    = "0.37.0"
-  nginx_ingress_controller_version     = "4.11.1"
+  argocd_version                       = "7.7.11"
+  aws_load_balancer_controller_version = "1.11.0"
+  karpenter_version                    = "1.1.1"
+  nginx_ingress_controller_version     = "4.11.3"
 }
