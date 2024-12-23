@@ -1,4 +1,6 @@
 # Infra Components
+
+AWS EKS cluster:
 - [x] Karpenter - EC2 nodes management
 - [x] ArgoCD - GitOps
 - [x] Hashicorp Vault + Bank Vaults Operator - Secrets management
