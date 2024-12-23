@@ -6,9 +6,9 @@ metadata:
   namespace: "vault"
 spec:
   size: 3
-  image: docker.io/hashicorp/vault:1.17.3
-  bankVaultsImage: ghcr.io/bank-vaults/bank-vaults:v1.31.1
-  statsdImage: docker.io/prom/statsd-exporter:v0.9.0
+  image: docker.io/hashicorp/vault:1.18.3
+  bankVaultsImage: ghcr.io/bank-vaults/bank-vaults:v1.31.3
+  statsdImage: docker.io/prom/statsd-exporter:v0.28.0
 
   # Common annotations for all created resources
   annotations:
