@@ -14,6 +14,9 @@ spec:
     metadata:
       labels:
         app: currencyservice
+      annotations:
+        vault.security.banzaicloud.io/vault-addr: "http://vault.vault.svc.cluster.local:8200"
+        vault.security.banzaicloud.io/vault-role: "hipster"
     spec:
       serviceAccountName: currencyservice
       terminationGracePeriodSeconds: 5

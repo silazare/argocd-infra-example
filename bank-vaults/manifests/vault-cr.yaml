@@ -172,6 +172,14 @@ spec:
             policies: ["allow_secrets"]
             ttl: 1h
 
+          # Allow every pod in the hipster namespace to use the secret kv store
+          # Add 'vault.security.banzaicloud.io/vault-role: "hipster"' annotation to resources to use this role
+          - name: hipster
+            bound_service_account_names: ["*"]
+            bound_service_account_namespaces: ["hipster"]
+            policies: ["allow_secrets"]
+            ttl: 1h
+
           # Allow access for the vault secrets webhook
           # Necessary to mutate secrets and configmaps
           # Add 'vault.security.banzaicloud.io/vault-role: "vault-secrets-webhook"' annotation to resources to use this role
