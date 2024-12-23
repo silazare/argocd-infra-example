@@ -5,9 +5,9 @@ AWS EKS cluster:
 - [x] ArgoCD - GitOps
 - [x] Hashicorp Vault + Bank Vaults Operator - Secrets management
 - [x] Nginx Ingress Controller - Ingress
+- [x] Kube-Prometheus-Stack - Metrics
 - [ ] Loki + Promtail - Logging
 - [ ] Banzai Logging operator - Logging
-- [ ] Kube-Prometheus-Stack - Metrics
 - [ ] Trivy Operator - Security
 - [ ] Kyverno - Security
 
@@ -90,7 +90,7 @@ http://grafana.local/
 
 ## Hipster demo app deploy (without Istio)
 
-1) Create Vault application:
+1) Create Hipster application:
 ```
 k apply -f hipster-app/application.yaml
 ```
