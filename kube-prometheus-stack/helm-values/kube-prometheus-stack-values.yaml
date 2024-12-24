@@ -1,5 +1,44 @@
 ---
+defaultRules:
+  create: true
+  rules:
+    alertmanager: true
+    configReloaders: true
+    etcd: true
+    general: true
+    k8s: true
+    kubeApiserver: true
+    kubeApiserverAvailability: true
+    kubeApiserverSlos: true
+    kubePrometheusGeneral: true
+    kubePrometheusNodeRecording: true
+    kubeProxy: true
+    kubeScheduler: true
+    kubeStateMetrics: true
+    kubelet: true
+    kubernetesApps: true
+    kubernetesResources: true
+    kubernetesStorage: true
+    kubernetesSystem: true
+    network: true
+    node: true
+    nodeExporterAlerting: true
+    nodeExporterRecording: true
+    prometheus: true
+    prometheusOperator: true
+global:
+  rbac:
+    create: true
 grafana:
+  ## This is not for production
+  adminPassword: admin
+  deploymentStrategy:
+    type: Recreate
+  enabled: true
+  grafana.ini:
+    server:
+      domain: grafana.local
+      root_url: http://grafana.local/
   ingress:
     annotations:
       alb.ingress.kubernetes.io/ssl-passthrough: "true"
@@ -10,6 +49,50 @@ grafana:
     hosts:
     - grafana.local
     path: /
+  persistence:
+    storageClassName: "gp3"
+    accessModes:
+    - ReadWriteOnce
+    enabled: true
+    size: 1Gi
+  plugins: []
+  sidecar:
+    datasources:
+      enabled: true
+prometheusOperator:
+  admissionWebhooks:
+    enabled: true
+    patch:
+      enabled: true
+      securityContext:
+        fsGroup: 65534
+        runAsGroup: 2000
+        runAsNonRoot: true
+        runAsUser: 2000
+        seccompProfile:
+          type: RuntimeDefault
+alertmanager:
+  enabled: true
+  ingress:
+    annotations:
+      alb.ingress.kubernetes.io/ssl-passthrough: "true"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - alertmanager.local
+    path: /
+  alertmanagerSpec:
+    logLevel: info
+    storage:
+     volumeClaimTemplate:
+       spec:
+         storageClassName: gp3
+         accessModes: ["ReadWriteOnce"]
+         resources:
+           requests:
+             storage: 1Gi
 prometheus:
   ingress:
     annotations:
@@ -21,3 +104,17 @@ prometheus:
     hosts:
     - prometheus.local
     path: /
+  prometheusSpec:
+    enableAdminAPI: true
+    logLevel: info
+    ## How long to retain Prometheus metrics
+    retention: 1d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 5Gi
+  additionalServiceMonitors: []

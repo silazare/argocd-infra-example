@@ -20,6 +20,7 @@ AWS EKS cluster:
   - hipster.local
   - grafana.local
   - prometheus.local
+  - alertmanager.local
 
 3) Retrieve ArgoCD admin password:
 ```
