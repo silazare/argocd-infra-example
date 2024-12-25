@@ -65,13 +65,11 @@ grafana:
       uid: prometheus
   ## Configure additional grafana datasources (passed through tpl)
   ## ref: http://docs.grafana.org/administration/provisioning/#datasources
-  additionalDataSources:
+  additionalDatasources:
     - name: Loki
       type: loki
-      uid: loki
-      url: http://loki-gateway.monitoring.svc.cluster.local/
-      isDefault: false
       access: proxy
+      url: http://loki-gateway.monitoring.svc.cluster.local/
 
 prometheusOperator:
   admissionWebhooks:
