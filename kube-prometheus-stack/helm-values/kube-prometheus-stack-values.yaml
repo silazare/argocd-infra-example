@@ -59,13 +59,21 @@ grafana:
   sidecar:
     datasources:
       enabled: true
+      defaultDatasourceEnabled: true
+      isDefaultDatasource: true
+      name: Prometheus
+      uid: prometheus
   ## Configure additional grafana datasources (passed through tpl)
   ## ref: http://docs.grafana.org/administration/provisioning/#datasources
   additionalDataSources:
-    - name: Loki
-      type: loki
-      url: http://loki-gateway.monitoring.svc.cluster.local/
+    - name: prometheus-sample
       access: proxy
+      basicAuth: false
+      editable: false
+      orgId: 1
+      type: loki
+      url: http://loki-gateway.monitoring.svc.cluster.local
+      version: 1
       isDefault: false
 
 prometheusOperator:
