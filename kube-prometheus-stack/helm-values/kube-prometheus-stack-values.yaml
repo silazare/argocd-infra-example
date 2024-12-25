@@ -65,7 +65,7 @@ grafana:
       uid: prometheus
   ## Configure additional grafana datasources (passed through tpl)
   ## ref: http://docs.grafana.org/administration/provisioning/#datasources
-  additionalDatasources:
+  additionalDataSources:
     - name: Loki
       type: loki
       access: proxy
