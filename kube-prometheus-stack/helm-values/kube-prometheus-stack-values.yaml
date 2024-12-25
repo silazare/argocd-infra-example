@@ -66,7 +66,7 @@ grafana:
       type: loki
       url: http://loki-gateway.monitoring.svc.cluster.local/
       access: proxy
-      isDefault: true
+      isDefault: false
 
 prometheusOperator:
   admissionWebhooks:
