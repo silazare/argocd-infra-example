@@ -31,7 +31,7 @@ global:
     create: true
 grafana:
   ## This is not for production
-  adminPassword: admin
+  adminPassword: prom-operator123!
   deploymentStrategy:
     type: Recreate
   enabled: true
