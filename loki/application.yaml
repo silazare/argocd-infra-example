@@ -1,0 +1,42 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  namespace: argocd
+  finalizers:
+  # Finalizer that ensures that project is not deleted until it is not referenced by any application
+  # https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Application-Deletion/
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    # Loki and Promtail values from Git
+    - repoURL: 'https://github.com/silazare/argocd-infra-example'
+      targetRevision: HEAD
+      ref: values
+    # Loki Helm Chart from repo
+    - chart: loki
+      repoURL: 'https://grafana.github.io/helm-charts'
+      targetRevision: 6.24.0
+      helm:
+        releaseName: loki
+        valueFiles:
+          - $values/loki/helm-values/loki-values.yaml
+    # Promtail Helm Chart from repo
+    - chart: promtail
+      repoURL: 'https://grafana.github.io/helm-charts'
+      targetRevision: 6.16.6
+      helm:
+        releaseName: promtail
+        valueFiles:
+          - $values/loki/helm-values/promtail-values.yaml
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

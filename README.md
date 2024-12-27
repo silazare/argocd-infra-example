@@ -89,6 +89,23 @@ k -n monitoring get secret kube-prometheus-stack-grafana -o jsonpath="{.data.adm
 http://grafana.local/
 ```
 
+## Loki deploy
+
+Loki deployed as a separate components Loki in SingleBinary with filesystem and Promtail.
+https://grafana.com/docs/loki/latest/setup/install/helm/install-monolithic/#single-replica
+
+1) Create Loki application:
+```
+k apply -f loki/application.yaml
+```
+
+2) Wait until app will be synced
+
+3) Login to Grafana and explore logs and check that Loki datasource is accessible:
+```
+http://grafana.local/
+```
+
 ## Hipster demo app deploy (without Istio)
 
 1) Create Hipster application:
