@@ -6,10 +6,11 @@ AWS EKS cluster:
 - [x] Hashicorp Vault + Bank Vaults Operator - Secrets management
 - [x] Nginx Ingress Controller - Ingress
 - [x] Kube-Prometheus-Stack - Metrics
-- [ ] Loki + Promtail - Logging
-- [ ] Banzai Logging operator - Logging
+- [x] Grafana Loki + Promtail - Logging
 - [ ] Trivy Operator - Security
 - [ ] Kyverno - Security
+- [ ] Grafana Tempo - Tracing
+- [ ] Banzai Logging operator - (Optiona) Logging operator
 
 ## ArgoCD deploy
 
