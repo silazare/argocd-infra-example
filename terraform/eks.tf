@@ -98,6 +98,8 @@ module "eks" {
     # (i.e. - at most, only one security group should have this tag in your account)
     "karpenter.sh/discovery" = local.name
   })
+
+  depends_on = [module.vpc]
 }
 
 ################################################################################
@@ -123,4 +125,6 @@ module "karpenter" {
   }
 
   tags = local.tags
+
+  depends_on = [module.eks]
 }

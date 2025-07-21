@@ -415,6 +415,7 @@ resource "helm_release" "nginx_ingress_controller" {
   timeout = 360
 
   depends_on = [
+    module.eks,
     helm_release.alb_ingress_controller,
   ]
 }
