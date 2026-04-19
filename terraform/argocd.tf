@@ -8,57 +8,55 @@ resource "helm_release" "argocd" {
 
   values = [
     <<-EOT
+    # HA redis cluster (3 servers + 3 haproxy)
     redis-ha:
+      enabled: false
+    # Single in-memory redis for app state and caching
+    redis:
       enabled: true
+
+    # OIDC/SSO proxy for GitHub/Google/Okta login
+    dex:
+      enabled: false
+
+    # Webhook and Slack alert sender
+    notifications:
+      enabled: false
+
+    # Core reconciler — watches apps and syncs state. StatefulSet, min 1.
     controller:
       replicas: 1
+
+    # Disable Argo's built-in HTTPS redirect for sandbox — Traefik terminates TLS
+    configs:
+      params:
+        server.insecure: true
+
+    # API / UI frontend.
     server:
+      replicas: 1
       autoscaling:
+        enabled: false
+      ingress:
         enabled: true
-        minReplicas: 2
+        ingressClassName: traefik
+        hostname: argocd.local
+
+    # Clones git repos and renders manifests
     repoServer:
+      replicas: 1
       autoscaling:
-        enabled: true
-        minReplicas: 2
+        enabled: false
+
+    # Generates Applications from templates (ApplicationSet CR).
     applicationSet:
-      replicas: 2
+      replicas: 1
     EOT
   ]
 
   depends_on = [
     module.eks,
-    helm_release.karpenter
-  ]
-}
-
-resource "kubectl_manifest" "argocd_ingress" {
-  yaml_body = <<EOF
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: argocd-server-ingress
-  namespace: argocd
-  annotations:
-    alb.ingress.kubernetes.io/ssl-passthrough: "true"
-    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-spec:
-  ingressClassName: nginx
-  rules:
-  - host: argocd.local
-    http:
-      paths:
-      - pathType: Prefix
-        path: /
-        backend:
-          service:
-            name: argocd-server
-            port:
-              number: 443
-EOF
-
-  depends_on = [
-    helm_release.argocd,
-    helm_release.nginx_ingress_controller
+    helm_release.karpenter,
+    helm_release.traefik_ingress_controller,
   ]
 }

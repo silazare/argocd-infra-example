@@ -2,15 +2,13 @@
 # Common data/locals
 ################################################################################
 
-data "aws_ecrpublic_authorization_token" "token" {
-  provider = aws.virginia
-}
-
 data "aws_availability_zones" "available" {}
+data "aws_caller_identity" "current" {}
+data "aws_partition" "current" {}
 
 locals {
-  name            = "ireland-test-cluster"
-  cluster_version = "1.31"
+  name            = "ireland-test"
+  cluster_version = "1.35"
   region          = "eu-west-1"
 
   vpc_cidr = "10.0.0.0/16"
@@ -22,8 +20,8 @@ locals {
     Owner      = "slazarev"
   }
 
-  argocd_version                       = "7.7.11"
-  aws_load_balancer_controller_version = "1.11.0"
-  karpenter_version                    = "1.1.1"
-  nginx_ingress_controller_version     = "4.11.3"
+  argocd_version                       = "9.5.2"
+  aws_load_balancer_controller_version = "3.2.1"
+  karpenter_version                    = "1.11.1"
+  traefik_ingress_controller_version   = "39.0.8"
 }

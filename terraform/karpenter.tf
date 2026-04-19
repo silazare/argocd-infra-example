@@ -1,20 +1,12 @@
 resource "helm_release" "karpenter_crd" {
-  name                = "karpenter-crd"
-  chart               = "karpenter-crd"
-  repository          = "oci://public.ecr.aws/karpenter"
-  repository_username = data.aws_ecrpublic_authorization_token.token.user_name
-  repository_password = data.aws_ecrpublic_authorization_token.token.password
-  namespace           = "kube-system"
-  version             = local.karpenter_version
-  wait                = false
+  name       = "karpenter-crd"
+  chart      = "karpenter-crd"
+  repository = "oci://public.ecr.aws/karpenter"
+  namespace  = "kube-system"
+  version    = local.karpenter_version
 
-  timeout = 360
-
-  lifecycle {
-    ignore_changes = [
-      repository_password
-    ]
-  }
+  timeout = 600
+  atomic  = true
 
   depends_on = [
     module.eks,
@@ -23,14 +15,11 @@ resource "helm_release" "karpenter_crd" {
 }
 
 resource "helm_release" "karpenter" {
-  name                = "karpenter"
-  chart               = "karpenter"
-  repository          = "oci://public.ecr.aws/karpenter"
-  repository_username = data.aws_ecrpublic_authorization_token.token.user_name
-  repository_password = data.aws_ecrpublic_authorization_token.token.password
-  namespace           = "kube-system"
-  version             = local.karpenter_version
-  wait                = false
+  name       = "karpenter"
+  chart      = "karpenter"
+  repository = "oci://public.ecr.aws/karpenter"
+  namespace  = "kube-system"
+  version    = local.karpenter_version
 
   values = [
     <<-EOT
@@ -49,13 +38,8 @@ resource "helm_release" "karpenter" {
     EOT
   ]
 
-  timeout = 360
-
-  lifecycle {
-    ignore_changes = [
-      repository_password
-    ]
-  }
+  timeout = 600
+  atomic  = true
 
   depends_on = [
     module.eks,
@@ -86,6 +70,7 @@ spec:
       ebs:
         volumeSize: 64Gi
         volumeType: gp3
+        encrypted: true
   metadataOptions:
     httpEndpoint: enabled
     httpProtocolIPv6: disabled
@@ -123,7 +108,6 @@ spec:
         nodegroup: default
     spec:
       expireAfter: 720h
-      # References the Cloud Provider's NodeClass resource
       nodeClassRef:
         group: karpenter.k8s.aws
         kind: EC2NodeClass

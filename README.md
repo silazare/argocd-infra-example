@@ -1,10 +1,13 @@
 # Infra Components
 
-AWS EKS cluster:
+AWS EKS cluster Core:
 - [x] Karpenter - EC2 nodes management
 - [x] ArgoCD - GitOps
+- [x] AWS Load Balancer Controller - ALB management
+- [x] Traefik Ingress Controller - Ingress
+
+AWS EKS cluster Applications:
 - [x] Hashicorp Vault + Bank Vaults Operator - Secrets management
-- [x] Nginx Ingress Controller - Ingress
 - [x] Kube-Prometheus-Stack - Metrics
 - [x] Grafana Loki + Promtail - Logging
 - [ ] Trivy Operator - Security
@@ -12,10 +15,18 @@ AWS EKS cluster:
 - [ ] Grafana Tempo - Tracing
 - [ ] Banzai Logging operator - (Optiona) Logging operator
 
-## ArgoCD deploy
+## AWS EKS and ArgoCD deploy
 
-1) Deploy EKS cluster + Karpenter + ArgoCD with Terraform
-2) Map local domains in `/etc/hosts` with NLB IP address:
+1) Deploy EKS cluster (VPC,EKS,Karpenter,ArgoCD,Traefik) with Terraform
+
+2) Map local domains in your `/etc/hosts` with created NLB IP address:
+
+```shell
+k -n traefik get svc traefik \
+  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' \
+  | xargs dig +short
+```
+
   - argocd.local
   - vault.local
   - hipster.local

@@ -1,4 +1,5 @@
-// AWS Load Balancer resources to control and create AWS LBs
+// AWS Load Balancer Controller IAM
+// https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
 data "aws_iam_policy_document" "alb_ingress_controller" {
   statement {
     sid       = ""
@@ -33,6 +34,8 @@ data "aws_iam_policy_document" "alb_ingress_controller" {
       "ec2:GetCoipPoolUsage",
       "ec2:DescribeCoipPools",
       "ec2:GetSecurityGroupsForVpc",
+      "ec2:DescribeIpamPools",
+      "ec2:DescribeRouteTables",
       "elasticloadbalancing:DescribeLoadBalancers",
       "elasticloadbalancing:DescribeLoadBalancerAttributes",
       "elasticloadbalancing:DescribeListeners",
@@ -45,6 +48,7 @@ data "aws_iam_policy_document" "alb_ingress_controller" {
       "elasticloadbalancing:DescribeTags",
       "elasticloadbalancing:DescribeTrustStores",
       "elasticloadbalancing:DescribeListenerAttributes",
+      "elasticloadbalancing:DescribeCapacityReservation",
     ]
   }
 
@@ -228,29 +232,6 @@ data "aws_iam_policy_document" "alb_ingress_controller" {
   }
 
   statement {
-    sid       = ""
-    effect    = "Allow"
-    resources = ["*"]
-
-    actions = [
-      "elasticloadbalancing:ModifyLoadBalancerAttributes",
-      "elasticloadbalancing:SetIpAddressType",
-      "elasticloadbalancing:SetSecurityGroups",
-      "elasticloadbalancing:SetSubnets",
-      "elasticloadbalancing:DeleteLoadBalancer",
-      "elasticloadbalancing:ModifyTargetGroup",
-      "elasticloadbalancing:ModifyTargetGroupAttributes",
-      "elasticloadbalancing:DeleteTargetGroup",
-    ]
-
-    condition {
-      test     = "Null"
-      variable = "aws:ResourceTag/elbv2.k8s.aws/cluster"
-      values   = ["false"]
-    }
-  }
-
-  statement {
     sid    = ""
     effect = "Allow"
 
@@ -282,6 +263,32 @@ data "aws_iam_policy_document" "alb_ingress_controller" {
   statement {
     sid       = ""
     effect    = "Allow"
+    resources = ["*"]
+
+    actions = [
+      "elasticloadbalancing:ModifyLoadBalancerAttributes",
+      "elasticloadbalancing:SetIpAddressType",
+      "elasticloadbalancing:SetSecurityGroups",
+      "elasticloadbalancing:SetSubnets",
+      "elasticloadbalancing:DeleteLoadBalancer",
+      "elasticloadbalancing:ModifyTargetGroup",
+      "elasticloadbalancing:ModifyTargetGroupAttributes",
+      "elasticloadbalancing:DeleteTargetGroup",
+      "elasticloadbalancing:ModifyListenerAttributes",
+      "elasticloadbalancing:ModifyCapacityReservation",
+      "elasticloadbalancing:ModifyIpPools",
+    ]
+
+    condition {
+      test     = "Null"
+      variable = "aws:ResourceTag/elbv2.k8s.aws/cluster"
+      values   = ["false"]
+    }
+  }
+
+  statement {
+    sid       = ""
+    effect    = "Allow"
     resources = ["arn:aws:elasticloadbalancing:*:*:targetgroup/*/*"]
 
     actions = [
@@ -301,6 +308,7 @@ data "aws_iam_policy_document" "alb_ingress_controller" {
       "elasticloadbalancing:AddListenerCertificates",
       "elasticloadbalancing:RemoveListenerCertificates",
       "elasticloadbalancing:ModifyRule",
+      "elasticloadbalancing:SetRulePriorities",
     ]
   }
 }
@@ -381,41 +389,5 @@ resource "helm_release" "alb_ingress_controller" {
   depends_on = [
     module.eks,
     helm_release.karpenter
-  ]
-}
-
-// Nginx Ingress Controller Helm Chart
-resource "helm_release" "nginx_ingress_controller" {
-  chart            = "ingress-nginx"
-  name             = "controller"
-  repository       = "https://kubernetes.github.io/ingress-nginx"
-  namespace        = "ingress-nginx"
-  create_namespace = true
-  version          = local.nginx_ingress_controller_version
-
-  values = [
-    <<-EOT
-    controller:
-      replicaCount: 2
-      service:
-        annotations:
-          service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
-          service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
-          service.beta.kubernetes.io/aws-load-balancer-security-groups: ${aws_security_group.ingress_nginx_external.id}
-          service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules: true
-        loadBalancerClass: service.k8s.aws/nlb
-      minAvailable: 1
-    serviceAccount:
-      create: true
-      annotations:
-        eks.amazonaws.com/role-arn: ${aws_iam_role.alb_ingress_controller.arn}
-    EOT
-  ]
-
-  timeout = 360
-
-  depends_on = [
-    module.eks,
-    helm_release.alb_ingress_controller,
   ]
 }

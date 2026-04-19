@@ -4,60 +4,69 @@
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.31"
+  version = "~> 21.18"
 
-  cluster_name    = local.name
-  cluster_version = local.cluster_version
+  name               = local.name
+  kubernetes_version = local.cluster_version
 
   # Give the Terraform identity admin access to the cluster
   # which will allow it to deploy resources into the cluster
   enable_cluster_creator_admin_permissions = true
-  cluster_endpoint_public_access           = true
+  endpoint_public_access                   = true
 
-  cluster_addons = {
+  addons = {
+    aws-ebs-csi-driver = {
+      most_recent = true
+      pod_identity_association = [
+        {
+          role_arn        = aws_iam_role.ebs_csi_controller.arn
+          service_account = "ebs-csi-controller-sa"
+        }
+      ]
+      configuration_values = jsonencode({
+        controller = {
+          nodeSelector = {
+            "karpenter.sh/controller" = "true"
+          }
+          tolerations = [
+            {
+              key      = "karpenter.sh/controller"
+              operator = "Exists"
+              effect   = "NoSchedule"
+            }
+          ]
+        }
+      })
+    }
     coredns = {
       most_recent = true
       configuration_values = jsonencode({
+        nodeSelector = {
+          "karpenter.sh/controller" = "true"
+        }
         tolerations = [
-          # Allow CoreDNS to run on the same nodes as the Karpenter controller
-          # for use during cluster creation when Karpenter nodes do not yet exist
           {
-            key    = "karpenter.sh/controller"
-            value  = "true"
-            effect = "NoSchedule"
+            key      = "karpenter.sh/controller"
+            operator = "Exists"
+            effect   = "NoSchedule"
           }
         ]
       })
-      most_recent = true
     }
     eks-pod-identity-agent = {
       most_recent = true
+      # Must exist before nodes join so first pods can obtain IAM tokens
+      before_compute = true
     }
     kube-proxy = {
       most_recent = true
     }
     vpc-cni = {
       most_recent = true
-    }
-    aws-ebs-csi-driver = {
-      most_recent = true
-      configuration_values = jsonencode({
-        controller = {
-          tolerations = [
-            # Allow EBS CSI driver to run on the same nodes as the Karpenter controller
-            # for use during cluster creation when Karpenter nodes do not yet exist
-            {
-              key    = "karpenter.sh/controller"
-              value  = "true"
-              effect = "NoSchedule"
-            }
-          ]
-        }
-      })
+      # Must exist before nodes join, otherwise kubelet never reports Ready
+      before_compute = true
     }
   }
-
-  enable_efa_support = true
 
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
@@ -72,7 +81,9 @@ module "eks" {
       desired_size = 2
 
       iam_role_additional_policies = {
-        AmazonEBSCSIDriverPolicy = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+        # least-privilege, scoped to this cluster via eks:eks-cluster-name tag
+        AmazonEBSCSIDriverPolicy     = "arn:aws:iam::aws:policy/AmazonEBSCSIDriverEKSClusterScopedPolicy"
+        AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
       }
 
       labels = {
@@ -81,8 +92,6 @@ module "eks" {
       }
 
       taints = {
-        # The pods that do not tolerate this taint should run on nodes
-        # created by Karpenter
         karpenter = {
           key    = "karpenter.sh/controller"
           value  = "true"
@@ -92,14 +101,37 @@ module "eks" {
     }
   }
 
-  tags = merge(local.tags, {
-    # NOTE - if creating multiple security groups with this module, only tag the
-    # security group that Karpenter should utilize with the following tag
-    # (i.e. - at most, only one security group should have this tag in your account)
+  node_security_group_tags = {
+    # Karpenter should discover exactly one SG with this tag
     "karpenter.sh/discovery" = local.name
-  })
+  }
 
-  depends_on = [module.vpc]
+  tags = local.tags
+}
+
+################################################################################
+# EBS CSI driver — Pod Identity for controller SA
+################################################################################
+
+data "aws_iam_policy_document" "ebs_csi_assume" {
+  statement {
+    actions = ["sts:AssumeRole", "sts:TagSession"]
+    principals {
+      type        = "Service"
+      identifiers = ["pods.eks.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "ebs_csi_controller" {
+  name               = "${local.name}-ebs-csi-controller"
+  assume_role_policy = data.aws_iam_policy_document.ebs_csi_assume.json
+  tags               = local.tags
+}
+
+resource "aws_iam_role_policy_attachment" "ebs_csi_controller" {
+  role       = aws_iam_role.ebs_csi_controller.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEBSCSIDriverEKSClusterScopedPolicy"
 }
 
 ################################################################################
@@ -108,7 +140,7 @@ module "eks" {
 
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "~> 20.31"
+  version = "~> 21.18"
 
   cluster_name = module.eks.cluster_name
 
@@ -116,15 +148,14 @@ module "karpenter" {
   node_iam_role_use_name_prefix = false
   node_iam_role_name            = local.name
 
-  enable_pod_identity             = true
   create_pod_identity_association = true
 
   # Used to attach additional IAM policies to the Karpenter node IAM role
   node_iam_role_additional_policies = {
-    AmazonEBSCSIDriverPolicy = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+    # least-privilege, scoped to this cluster via eks:eks-cluster-name tag
+    AmazonEBSCSIDriverPolicy     = "arn:aws:iam::aws:policy/AmazonEBSCSIDriverEKSClusterScopedPolicy"
+    AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
   }
 
   tags = local.tags
-
-  depends_on = [module.eks]
 }

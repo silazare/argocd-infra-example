@@ -1,6 +1,6 @@
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"
+  version = "~> 6.0"
 
   name = local.name
   cidr = local.vpc_cidr
@@ -25,8 +25,8 @@ module "vpc" {
   tags = local.tags
 }
 
-resource "aws_security_group" "ingress_nginx_external" {
-  name        = "ingress-nginx-external"
+resource "aws_security_group" "ingress_traefik_external" {
+  name        = "ingress-traefik-external"
   description = "Allow public HTTP and HTTPS traffic"
   vpc_id      = module.vpc.vpc_id
 
@@ -59,8 +59,8 @@ resource "aws_security_group" "ingress_nginx_external" {
   )
 }
 
-resource "aws_security_group" "ingress_nginx_node" {
-  name        = "ingress-nginx-node"
+resource "aws_security_group" "ingress_traefik_node" {
+  name        = "ingress-traefik-node"
   description = "Allow local HTTP and HTTPS traffic for Worker nodes"
   vpc_id      = module.vpc.vpc_id
 
@@ -88,7 +88,7 @@ resource "aws_security_group" "ingress_nginx_node" {
   tags = merge(
     local.tags,
     {
-      Name                     = "ingress-nginx-node",
+      Name                     = "ingress-traefik-node",
       "karpenter.sh/discovery" = local.name
     }
   )
