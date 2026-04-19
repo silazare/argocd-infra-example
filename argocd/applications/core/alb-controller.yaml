@@ -1,0 +1,39 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: alb-controller
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            argocd.argoproj.io/secret-type: cluster
+  template:
+    metadata:
+      name: alb-controller
+    spec:
+      project: default
+      sources:
+        - repoURL: https://aws.github.io/eks-charts
+          chart: aws-load-balancer-controller
+          targetRevision: 1.11.0
+          helm:
+            valueFiles:
+              - $values/argocd/helm-values/alb-controller/values.yaml
+            values: |
+              clusterName: "{{metadata.annotations.cluster_name}}"
+              region: "{{metadata.annotations.region}}"
+              vpcId: "{{metadata.annotations.vpc_id}}"
+        # TODO: change `targetRevision` to HEAD once gitops-bridge branch is merged
+        - repoURL: https://github.com/silazare/argocd-infra-example
+          targetRevision: gitops-bridge
+          ref: values
+      destination:
+        server: "{{server}}"
+        namespace: kube-system
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true

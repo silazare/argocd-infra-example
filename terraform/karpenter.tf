@@ -1,3 +1,4 @@
+// Karpenter CRD Helm release
 resource "helm_release" "karpenter_crd" {
   name       = "karpenter-crd"
   chart      = "karpenter-crd"
@@ -14,6 +15,7 @@ resource "helm_release" "karpenter_crd" {
   ]
 }
 
+// Karpenter Helm release
 resource "helm_release" "karpenter" {
   name       = "karpenter"
   chart      = "karpenter"

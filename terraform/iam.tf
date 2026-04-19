@@ -1,3 +1,28 @@
+// Shared assume-role policy for all Pod Identity-based IAM roles
+data "aws_iam_policy_document" "pod_identity_assume" {
+  statement {
+    actions = ["sts:AssumeRole", "sts:TagSession"]
+    principals {
+      type        = "Service"
+      identifiers = ["pods.eks.amazonaws.com"]
+    }
+  }
+}
+
+// EBS CSI driver IAM
+resource "aws_iam_role" "ebs_csi_controller" {
+  name               = "${local.name}-ebs-csi-controller"
+  assume_role_policy = data.aws_iam_policy_document.pod_identity_assume.json
+  tags               = local.tags
+}
+
+resource "aws_iam_role_policy_attachment" "ebs_csi_controller" {
+  role       = aws_iam_role.ebs_csi_controller.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEBSCSIDriverEKSClusterScopedPolicy"
+}
+
+
+
 // AWS Load Balancer Controller IAM
 // https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
 data "aws_iam_policy_document" "alb_ingress_controller" {
@@ -320,40 +345,9 @@ resource "aws_iam_policy" "alb_ingress_controller" {
   policy      = data.aws_iam_policy_document.alb_ingress_controller.json
 }
 
-data "aws_iam_policy_document" "alb_ingress_controller_assume" {
-  statement {
-    actions = ["sts:AssumeRoleWithWebIdentity"]
-
-    principals {
-      type        = "Federated"
-      identifiers = [module.eks.oidc_provider_arn]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "${replace(module.eks.oidc_provider, "https://", "")}:sub"
-
-      values = [
-        "system:serviceaccount:kube-system:aws-load-balancer-controller",
-      ]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "${replace(module.eks.oidc_provider, "https://", "")}:aud"
-
-      values = [
-        "sts.amazonaws.com",
-      ]
-    }
-
-    effect = "Allow"
-  }
-}
-
 resource "aws_iam_role" "alb_ingress_controller" {
   name               = "${module.eks.cluster_name}-alb-ingress-controller"
-  assume_role_policy = data.aws_iam_policy_document.alb_ingress_controller_assume.json
+  assume_role_policy = data.aws_iam_policy_document.pod_identity_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "alb_ingress_controller" {
@@ -361,33 +355,9 @@ resource "aws_iam_role_policy_attachment" "alb_ingress_controller" {
   policy_arn = aws_iam_policy.alb_ingress_controller.arn
 }
 
-// AWS Load Balancer Controller Helm Chart
-resource "helm_release" "alb_ingress_controller" {
-  name       = "aws-load-balancer-controller"
-  chart      = "aws-load-balancer-controller"
-  repository = "https://aws.github.io/eks-charts"
-  namespace  = "kube-system"
-  version    = local.aws_load_balancer_controller_version
-
-  values = [
-    <<-EOT
-    replicaCount: 2
-    serviceAccount:
-      create: true
-      annotations:
-        eks.amazonaws.com/role-arn: ${aws_iam_role.alb_ingress_controller.arn}
-    rbac:
-      create: true
-    clusterName: ${module.eks.cluster_name}
-    region: ${local.region}
-    vpcId: ${module.vpc.vpc_id}
-    EOT
-  ]
-
-  timeout = 360
-
-  depends_on = [
-    module.eks,
-    helm_release.karpenter
-  ]
+resource "aws_eks_pod_identity_association" "alb_ingress_controller" {
+  cluster_name    = module.eks.cluster_name
+  namespace       = "kube-system"
+  service_account = "aws-load-balancer-controller"
+  role_arn        = aws_iam_role.alb_ingress_controller.arn
 }

@@ -1,0 +1,7 @@
+replicaCount: 2
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true

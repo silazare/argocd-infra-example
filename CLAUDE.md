@@ -1,52 +1,104 @@
 # Project Overview
 
-AWS EKS cluster bootstrap with ArgoCD for GitOps, deployed via Terraform. The Terraform layer provisions the VPC, EKS cluster, Karpenter, AWS Load Balancer Controller, Traefik ingress and ArgoCD. Application layer (Vault, kube-prometheus-stack, Loki, Hipster demo) is managed by ArgoCD from this repo.
+AWS EKS cluster bootstrap with ArgoCD for GitOps, deployed via Terraform. Terraform provisions only the cluster-layer (VPC, EKS, Karpenter, IAM, ArgoCD, the GitOps bridge). Everything above the cluster layer — ingress controllers, apps — is managed by ArgoCD from this repo.
 
-## Terraform Layer
+## Two-layer architecture
 
-Single flat stack under `terraform/`. No custom modules — the stack consumes public upstream modules directly:
+```
+Terraform (cluster-layer — anything AWS-native or required for ArgoCD itself)
+  ↓  cluster Secret (GitOps bridge)
+  ↓  root Application
+ArgoCD GitOps (platform + apps — everything that runs *on top of* the cluster)
+```
 
-- `terraform-aws-modules/vpc/aws` — VPC, subnets, NAT
-- `terraform-aws-modules/eks/aws` — EKS cluster, addons, managed node group
-- `terraform-aws-modules/eks/aws//modules/karpenter` — Karpenter controller IAM, SQS, EventBridge wiring
+**Boundary rule:** Terraform manages anything that requires AWS API or must exist for ArgoCD to run. ArgoCD manages everything else. Karpenter is deliberately on the Terraform side — it provisions *capacity* for the cluster (same layer as VPC-CNI / EBS-CSI), it's not an application.
 
-Everything else (Karpenter Helm, ALB controller, Traefik, ArgoCD) is a direct `helm_release` / `kubectl_manifest` resource.
+## Repository layout
 
-### File map
+```
+terraform/                        # cluster-layer
+  main.tf                         # locals, region, shared data sources
+  versions.tf                     # provider + Terraform version pins
+  providers.tf                    # aws, helm, kubectl, kubernetes (all with exec auth)
+  vpc.tf                          # VPC module + ingress SGs
+  eks.tf                          # EKS module + Karpenter submodule + EBS CSI Pod Identity
+  karpenter.tf                    # Karpenter Helm CRD + chart + default NodePool/NodeClass
+  alb.tf                          # AWS Load Balancer Controller IAM (role + policy)
+  argocd.tf                       # ArgoCD Helm release + cluster Secret + root Application
 
-| File | Purpose |
-|---|---|
-| `main.tf` | Locals (cluster name, region, chart versions), shared data sources |
-| `versions.tf` | Terraform & provider version pins |
-| `providers.tf` | `aws`, `helm`, `kubectl`, `kubernetes` providers (EKS-scoped ones use `exec` auth via `aws eks get-token`) |
-| `vpc.tf` | VPC module + `ingress_traefik_external` / `ingress_traefik_node` security groups |
-| `eks.tf` | `module "eks"` + `module "karpenter"` submodule |
-| `karpenter.tf` | Karpenter Helm releases (CRD + controller) and default `EC2NodeClass` / `NodePool` manifests |
-| `alb.tf` | AWS Load Balancer Controller IAM + Helm release |
-| `traefik.tf` | Traefik Helm release (default IngressClass, NLB-backed service) |
-| `argocd.tf` | ArgoCD Helm release + `Ingress` for `argocd.local` |
+argocd/applications/                      # GitOps — discovered recursively by the root Application
+  core/
+    traefik.yaml                  # ApplicationSet, reads traefik_sg_id from cluster Secret
+    alb-controller.yaml           # ApplicationSet, reads role ARN + vpc_id + cluster_name
+  apps/                           # Vault, Grafana, etc. — migrate here over time
 
-### Component relationships
+argocd/helm-values/               # static Helm values referenced by Applications
+  traefik/values.yaml
+  alb-controller/values.yaml
+```
 
-- **VPC** (`vpc.tf`) → **EKS** (`eks.tf`): EKS consumes `module.vpc.vpc_id` and private subnets. Traefik-specific SGs live here so they're available to the Traefik service annotation.
-- **EKS** → **Karpenter submodule** (`eks.tf`): Karpenter submodule needs `module.eks.cluster_name` to wire up its SQS/EventBridge.
-- **EKS + Karpenter submodule** → **Karpenter Helm** (`karpenter.tf`): Helm release references `module.karpenter.queue_name` and `module.karpenter.node_iam_role_name`. The permanent managed node group (`eks_managed_node_groups.karpenter`) is tainted so only the Karpenter controller runs there; everything else lands on Karpenter-provisioned spot nodes.
-- **EKS** → **ALB controller** (`alb.tf`): IAM role uses `module.eks.oidc_provider_arn`.
-- **ALB controller** → **Traefik** (`traefik.tf`): Traefik service uses NLB annotations and the `ingress_traefik_external` SG. Traefik's default `IngressClass` makes it the cluster-wide ingress entrypoint.
-- **Traefik** → **ArgoCD** (`argocd.tf`): Argo runs with `server.insecure: true` (TLS terminates on Traefik); its `Ingress` uses `ingressClassName: traefik`.
+## Upstream modules & references
 
-### Provider auth
+- [`terraform-aws-modules/vpc/aws`](https://github.com/terraform-aws-modules/terraform-aws-vpc) — VPC
+- [`terraform-aws-modules/eks/aws`](https://github.com/terraform-aws-modules/terraform-aws-eks) — EKS cluster + Karpenter submodule
+- [argo-helm ArgoCD chart](https://github.com/argoproj/argo-helm) — ArgoCD bootstrap
+- [GitOps Bridge pattern](https://github.com/gitops-bridge-dev/gitops-bridge) — the TF→ArgoCD contract we use
+- [aws-ia/terraform-aws-eks-blueprints-addons](https://github.com/aws-ia/terraform-aws-eks-blueprints-addons) — reference for which addon parameters typically flow through cluster Secret annotations
 
-All Kubernetes-scoped providers (`helm`, `kubectl`, `kubernetes`) authenticate via `exec` calling `aws eks get-token --cluster-name <module.eks.cluster_name>`. Do not replace this with `data.aws_eks_cluster_auth.cluster.token` — the static token expires mid-apply on long runs; `exec` refreshes on each provider call.
+## GitOps Bridge contract
 
-## Common Commands
+Terraform writes a `kubernetes_secret` named `in-cluster` in the `argocd` namespace, labelled `argocd.argoproj.io/secret-type: cluster`. Its annotations carry per-cluster parameters:
+
+| Annotation | Source | Consumed by |
+|---|---|---|
+| `cluster_name` | `module.eks.cluster_name` | alb-controller |
+| `region` | `local.region` | alb-controller |
+| `vpc_id` | `module.vpc.vpc_id` | alb-controller |
+| `traefik_sg_id` | `aws_security_group.ingress_traefik_external.id` | traefik |
+
+IAM role ARNs are **not** published as annotations — Pod Identity associations (see [alb.tf](terraform/alb.tf), [eks.tf](terraform/eks.tf)) wire SAs to IAM roles at the AWS API level, so Helm values never need the role ARN.
+
+ApplicationSets in `argocd/applications/core/` use a `clusters` generator that matches this Secret and expands `{{metadata.annotations.*}}` placeholders inline in the Helm values block. The static parts of values live in `argocd/helm-values/<app>/values.yaml`, pulled via a multi-source `$values` ref.
+
+## Component relationships
+
+- **VPC** → **EKS**: VPC id and private subnets. Traefik-specific SGs live in VPC so they're available for the cluster Secret.
+- **EKS** → **Karpenter submodule**: cluster_name for IAM / SQS / EventBridge wiring.
+- **EKS + Karpenter submodule** → **Karpenter Helm** (`karpenter.tf`): `queue_name` + `node_iam_role_name` as Helm values.
+- **EKS** → **ALB controller Pod Identity** (`alb.tf`): `aws_eks_pod_identity_association` for `aws-load-balancer-controller` SA in `kube-system`.
+- **EKS** → **EBS CSI Pod Identity** (`eks.tf`): `aws_eks_pod_identity_association` for `ebs-csi-controller-sa`.
+- Both Pod Identity roles share a single assume policy (`data.aws_iam_policy_document.pod_identity_assume`) trusting `pods.eks.amazonaws.com`.
+- **ArgoCD Helm release** → **cluster Secret** → **ApplicationSets** → **Traefik / ALB charts**: the chain that lets Git manifests consume TF outputs.
+
+## Root Application
+
+A single `Application` CR (`root`) deployed by Terraform via `kubectl_manifest` points at `argocd/applications/` with `directory.recurse: true`. It materialises every `ApplicationSet` under `core/` and `apps/`, which in turn create the actual child Applications per cluster.
+
+## Provider auth
+
+All Kubernetes-scoped providers (`helm`, `kubectl`, `kubernetes`) authenticate via `exec` calling `aws eks get-token --cluster-name <module.eks.cluster_name>`. Do not replace this with a static `data.aws_eks_cluster_auth.cluster.token` — that token has a ~15-minute TTL and expires mid-apply on long runs; `exec` refreshes on each provider call.
+
+## Bootstrap gap
+
+There is a 60–90 second window after `terraform apply` completes when the ArgoCD UI is not yet reachable via `argocd.local` — Traefik hasn't synced yet. Use `kubectl -n argocd port-forward svc/argocd-server 8080:80` once, then switch to the ingress hostname once Traefik is up. After that, all platform + app changes happen via `git push`, not `terraform apply`.
+
+## Common commands
 
 ```bash
+# Bootstrap / day-2 cluster-layer changes
 cd terraform
-
 terraform init -upgrade
 terraform plan
 terraform apply
+
+# Inspect GitOps state
+kubectl -n argocd get applications
+kubectl -n argocd get applicationsets
+kubectl -n argocd get secret in-cluster -o yaml | grep -A20 annotations
+
+# Force ArgoCD to re-sync (useful during migration)
+kubectl -n argocd patch application root --type merge \
+  -p '{"operation":{"sync":{}}}'
 ```
 
-State is local (`terraform.tfstate` committed in the directory) and this is a Sandbox project, not production ready.
+State is local (`terraform.tfstate` committed in the directory) — this is a sandbox project, not production-ready.

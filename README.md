@@ -1,56 +1,94 @@
 # Infra Components
 
-AWS EKS cluster Core:
-- [x] Karpenter - EC2 nodes management
-- [x] ArgoCD - GitOps
-- [x] AWS Load Balancer Controller - ALB management
-- [x] Traefik Ingress Controller - Ingress
+AWS EKS layer (Terraform):
+- [x] VPC
+- [x] EKS cluster and EKS addons
+- [x] Karpenter
+- [x] AWS Load Balancer Controller IAM
+- [x] ArgoCD
+- [x] GitOps Bridge — cluster Secret + root Application
 
-AWS EKS cluster Applications:
-- [x] Hashicorp Vault + Bank Vaults Operator - Secrets management
-- [x] Kube-Prometheus-Stack - Metrics
-- [x] Grafana Loki + Promtail - Logging
-- [ ] Trivy Operator - Security
-- [ ] Kyverno - Security
-- [ ] Grafana Tempo - Tracing
-- [ ] Banzai Logging operator - (Optiona) Logging operator
+Core layer (ArgoCD at `argocd/applications/core/`):
+- [x] Traefik ingress controller
+- [x] AWS Load Balancer Controller (Helm release; IAM stays in TF)
 
-## AWS EKS and ArgoCD deploy
+Applications layer (ArgoCD at `argocd/applications/apps/`):
+- [ ] Hashicorp Vault + Bank Vaults Operator — secrets management
+- [ ] Kube-Prometheus-Stack — metrics
+- [ ] Grafana Loki + Promtail — logging
+- [ ] Trivy Operator — security
+- [ ] Kyverno — policy
+- [ ] Grafana Tempo — tracing
+- [ ] Banzai Logging Operator — optional
 
-1) Deploy EKS cluster (VPC,EKS,Karpenter,ArgoCD,Traefik) with Terraform
 
-2) Map local domains in your `/etc/hosts` with created NLB IP address:
+## Deployment
 
-```shell
-k -n traefik get svc traefik \
+1. Terraform — creates VPC, EKS, Karpenter, ArgoCD, cluster Secret, root Application.
+2. ArgoCD picks up the root Application → recursively discovers `argocd/applications/core/` and `argocd/applications/apps/`.
+3. ApplicationSets materialise child Applications that install Traefik, ALB controller, etc.
+4. Traefik comes up, NLB gets provisioned by ALB controller, you map the NLB IP in `/etc/hosts`.
+
+### 1. Terraform
+
+```bash
+cd terraform
+terraform init -upgrade
+terraform apply
+```
+
+### 2. Wait for ArgoCD to sync core platform
+
+During the first minutesthe ArgoCD UI is not yet reachable via `argocd.local`. 
+Access the UI via port-forward:
+
+```bash
+kubectl -n argocd port-forward svc/argocd-server 8080:80
+# open http://localhost:8080
+```
+
+### 3. Map the NLB IP into `/etc/hosts`
+
+```bash
+kubectl -n traefik get svc traefik \
   -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' \
   | xargs dig +short
 ```
 
-  - argocd.local
-  - vault.local
-  - hipster.local
-  - grafana.local
-  - prometheus.local
-  - alertmanager.local
+Pick any one of the returned IPs and add:
 
-3) Retrieve ArgoCD admin password:
 ```
-k -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+<IP>  argocd.local vault.local hipster.local grafana.local prometheus.local alertmanager.local
 ```
 
-4) Login to cli and init repos:
+### 4. Retrieve ArgoCD admin password
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d; echo
 ```
+
+Login to CLI and add the GitOps repo (if not public):
+
+```bash
 argocd login argocd.local:443
 
-argocd repo add https://github.com/silazare/argocd-infra-example.git --username silazare --password github_pat_xxxxx
+argocd repo add https://github.com/silazare/argocd-infra-example.git \
+  --username silazare --password github_pat_xxxxx
 
 argocd repo add ghcr.io --type helm --name stable --enable-oci
 ```
 
+## Moving applications to ArgoCD pattern
+
+1. Drop the chart's values into `argocd/helm-values/<app>/values.yaml`.
+2. Write an `Application` (static values) or `ApplicationSet` (needs cluster Secret annotations) YAML in `argocd/applications/apps/<app>.yaml` or `argocd/applications/core/<app>.yaml`.
+3. Push to the repo — ArgoCD picks it up automatically
+
+
 ## Bank-vaults deploy (demo example with local vault file unsealer)
 
-Also inspired by this (demo)[https://github.com/sagikazarmark/demo-bank-vaults/tree/main]
+Also inspired by this [demo](https://github.com/sagikazarmark/demo-bank-vaults/tree/main)
 
 1) Create Vault application:
 ```
