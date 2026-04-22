@@ -63,7 +63,7 @@ resource "helm_release" "argocd" {
 
 // GitOps Bridge — cluster Secret >> TF outputs as annotations,
 // For ApplicationSets usage in the Git repo (argocd/applications/core/*).
-resource "kubernetes_secret" "argocd_in_cluster" {
+resource "kubernetes_secret_v1" "argocd_in_cluster" {
   metadata {
     name      = "in-cluster"
     namespace = "argocd"
@@ -118,6 +118,6 @@ resource "kubectl_manifest" "argocd_root" {
 
   depends_on = [
     helm_release.argocd,
-    kubernetes_secret.argocd_in_cluster,
+    kubernetes_secret_v1.argocd_in_cluster,
   ]
 }
