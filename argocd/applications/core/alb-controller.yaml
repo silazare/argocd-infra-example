@@ -26,9 +26,8 @@ spec:
               clusterName: "{{metadata.annotations.cluster_name}}"
               region: "{{metadata.annotations.region}}"
               vpcId: "{{metadata.annotations.vpc_id}}"
-        # TODO: change `targetRevision` to HEAD once gitops-bridge branch is merged
         - repoURL: https://github.com/silazare/argocd-infra-example
-          targetRevision: gitops-bridge
+          targetRevision: "{{metadata.annotations.target_revision}}"
           ref: values
       destination:
         server: "{{server}}"

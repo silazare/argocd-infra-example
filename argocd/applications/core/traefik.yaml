@@ -26,9 +26,8 @@ spec:
               service:
                 annotations:
                   service.beta.kubernetes.io/aws-load-balancer-security-groups: "{{metadata.annotations.traefik_sg_id}}"
-        # TODO: change `targetRevision` to HEAD once gitops-bridge branch is merged
         - repoURL: https://github.com/silazare/argocd-infra-example
-          targetRevision: gitops-bridge
+          targetRevision: "{{metadata.annotations.target_revision}}"
           ref: values
       destination:
         server: "{{server}}"

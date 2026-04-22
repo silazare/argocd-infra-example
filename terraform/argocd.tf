@@ -71,10 +71,11 @@ resource "kubernetes_secret" "argocd_in_cluster" {
       "argocd.argoproj.io/secret-type" = "cluster"
     }
     annotations = {
-      cluster_name  = module.eks.cluster_name
-      region        = local.region
-      vpc_id        = module.vpc.vpc_id
-      traefik_sg_id = aws_security_group.ingress_traefik_external.id
+      cluster_name    = module.eks.cluster_name
+      region          = local.region
+      vpc_id          = module.vpc.vpc_id
+      traefik_sg_id   = aws_security_group.ingress_traefik_external.id
+      target_revision = local.argocd_target_revision
     }
   }
   data = {
@@ -95,12 +96,14 @@ resource "kubectl_manifest" "argocd_root" {
     metadata:
       name: root
       namespace: argocd
+      # Cascade-delete all managed resources when the root Application is removed
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
     spec:
       project: default
       source:
         repoURL: https://github.com/silazare/argocd-infra-example
-        # TODO: change `targetRevision` to HEAD once gitops-bridge branch is merged
-        targetRevision: gitops-bridge
+        targetRevision: ${local.argocd_target_revision}
         path: argocd/applications
         directory:
           recurse: true

@@ -21,9 +21,9 @@ terraform/                        # cluster-layer
   versions.tf                     # provider + Terraform version pins
   providers.tf                    # aws, helm, kubectl, kubernetes (all with exec auth)
   vpc.tf                          # VPC module + ingress SGs
-  eks.tf                          # EKS module + Karpenter submodule + EBS CSI Pod Identity
+  eks.tf                          # EKS module (addons incl. EBS CSI Pod Identity assoc) + Karpenter submodule
   karpenter.tf                    # Karpenter Helm CRD + chart + default NodePool/NodeClass
-  alb.tf                          # AWS Load Balancer Controller IAM (role + policy)
+  iam.tf                          # Shared Pod Identity assume policy + EBS CSI role + ALB controller role/policy/assoc
   argocd.tf                       # ArgoCD Helm release + cluster Secret + root Application
 
 argocd/applications/                      # GitOps — discovered recursively by the root Application
@@ -39,8 +39,8 @@ argocd/helm-values/               # static Helm values referenced by Application
 
 ## Upstream modules & references
 
-- [`terraform-aws-modules/vpc/aws`](https://github.com/terraform-aws-modules/terraform-aws-vpc) — VPC
-- [`terraform-aws-modules/eks/aws`](https://github.com/terraform-aws-modules/terraform-aws-eks) — EKS cluster + Karpenter submodule
+- [terraform-aws-modules/vpc/aws](https://github.com/terraform-aws-modules/terraform-aws-vpc) — VPC
+- [terraform-aws-modules/eks/aws](https://github.com/terraform-aws-modules/terraform-aws-eks) — EKS cluster + Karpenter submodule
 - [argo-helm ArgoCD chart](https://github.com/argoproj/argo-helm) — ArgoCD bootstrap
 - [GitOps Bridge pattern](https://github.com/gitops-bridge-dev/gitops-bridge) — the TF→ArgoCD contract we use
 - [aws-ia/terraform-aws-eks-blueprints-addons](https://github.com/aws-ia/terraform-aws-eks-blueprints-addons) — reference for which addon parameters typically flow through cluster Secret annotations
@@ -55,8 +55,9 @@ Terraform writes a `kubernetes_secret` named `in-cluster` in the `argocd` namesp
 | `region` | `local.region` | alb-controller |
 | `vpc_id` | `module.vpc.vpc_id` | alb-controller |
 | `traefik_sg_id` | `aws_security_group.ingress_traefik_external.id` | traefik |
+| `target_revision` | `local.argocd_target_revision` | every ApplicationSet (git ref of the `$values` source) |
 
-IAM role ARNs are **not** published as annotations — Pod Identity associations (see [alb.tf](terraform/alb.tf), [eks.tf](terraform/eks.tf)) wire SAs to IAM roles at the AWS API level, so Helm values never need the role ARN.
+IAM role ARNs are **not** published as annotations — Pod Identity associations (see [iam.tf](terraform/iam.tf) for ALB, [eks.tf](terraform/eks.tf) for the EBS CSI addon's inline `pod_identity_association`) wire SAs to IAM roles at the AWS API level, so Helm values never need the role ARN.
 
 ApplicationSets in `argocd/applications/core/` use a `clusters` generator that matches this Secret and expands `{{metadata.annotations.*}}` placeholders inline in the Helm values block. The static parts of values live in `argocd/helm-values/<app>/values.yaml`, pulled via a multi-source `$values` ref.
 
@@ -65,9 +66,9 @@ ApplicationSets in `argocd/applications/core/` use a `clusters` generator that m
 - **VPC** → **EKS**: VPC id and private subnets. Traefik-specific SGs live in VPC so they're available for the cluster Secret.
 - **EKS** → **Karpenter submodule**: cluster_name for IAM / SQS / EventBridge wiring.
 - **EKS + Karpenter submodule** → **Karpenter Helm** (`karpenter.tf`): `queue_name` + `node_iam_role_name` as Helm values.
-- **EKS** → **ALB controller Pod Identity** (`alb.tf`): `aws_eks_pod_identity_association` for `aws-load-balancer-controller` SA in `kube-system`.
-- **EKS** → **EBS CSI Pod Identity** (`eks.tf`): `aws_eks_pod_identity_association` for `ebs-csi-controller-sa`.
-- Both Pod Identity roles share a single assume policy (`data.aws_iam_policy_document.pod_identity_assume`) trusting `pods.eks.amazonaws.com`.
+- **EKS** → **ALB controller Pod Identity** (`iam.tf`): standalone `aws_eks_pod_identity_association` for `aws-load-balancer-controller` SA in `kube-system`.
+- **EKS** → **EBS CSI Pod Identity** (`eks.tf`): inline `pod_identity_association` inside the `aws-ebs-csi-driver` addon block, referencing `aws_iam_role.ebs_csi_controller` from `iam.tf`.
+- Both Pod Identity roles share a single assume policy (`data.aws_iam_policy_document.pod_identity_assume` in `iam.tf`) trusting `pods.eks.amazonaws.com`.
 - **ArgoCD Helm release** → **cluster Secret** → **ApplicationSets** → **Traefik / ALB charts**: the chain that lets Git manifests consume TF outputs.
 
 ## Root Application
@@ -101,4 +102,4 @@ kubectl -n argocd patch application root --type merge \
   -p '{"operation":{"sync":{}}}'
 ```
 
-State is local (`terraform.tfstate` committed in the directory) — this is a sandbox project, not production-ready.
+State is local (`terraform.tfstate` in the working directory, gitignored via `*.tfstate*`) — this is a sandbox project, not production-ready.
