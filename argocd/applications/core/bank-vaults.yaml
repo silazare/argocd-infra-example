@@ -1,0 +1,53 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: bank-vaults
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            argocd.argoproj.io/secret-type: cluster
+  template:
+    metadata:
+      name: bank-vaults
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+      sources:
+        # Vault-operator Helm Chart from OCI repo
+        - chart: bank-vaults/helm-charts/vault-operator
+          repoURL: ghcr.io
+          targetRevision: 1.22.4
+          helm:
+            releaseName: vault-operator
+            valueFiles:
+              - $values/argocd/helm-values/bank-vaults/vault-operator-values.yaml
+        # Vault-secrets-webhook Helm Chart from OCI repo
+        - chart: bank-vaults/helm-charts/vault-secrets-webhook
+          repoURL: ghcr.io
+          targetRevision: 1.21.4
+          helm:
+            releaseName: vault-secrets-webhook
+        # Namespace, RBAC, Vault CR — raw manifests
+        - repoURL: https://github.com/silazare/argocd-infra-example
+          targetRevision: "{{metadata.annotations.target_revision}}"
+          path: argocd/manifests/bank-vaults
+        # Git ref for $values lookups
+        - repoURL: https://github.com/silazare/argocd-infra-example
+          targetRevision: "{{metadata.annotations.target_revision}}"
+          ref: values
+      destination:
+        server: "{{server}}"
+        namespace: vault
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          # Vault CR is large + nested; SSA avoids the last-applied-config annotation size limit
+          - ServerSideApply=true
