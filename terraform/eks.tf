@@ -95,6 +95,11 @@ module "eks" {
           effect = "NO_SCHEDULE"
         }
       }
+
+      tags = {
+        # Tag is required for AmazonEBSCSIDriverEKSClusterScopedPolicy
+        "ebs.csi.aws.com/cluster-name" = local.name
+      }
     }
   }
 

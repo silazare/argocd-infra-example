@@ -81,6 +81,8 @@ spec:
   tags:
     karpenter.sh/discovery: ${local.name}
     CostCenter: ${local.name}
+    # Tag is required for AmazonEBSCSIDriverEKSClusterScopedPolicy
+    ebs.csi.aws.com/cluster-name: ${local.name}
 EOF
 
   depends_on = [
