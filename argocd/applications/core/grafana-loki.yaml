@@ -1,0 +1,49 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: loki
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            argocd.argoproj.io/secret-type: cluster
+  template:
+    metadata:
+      name: loki
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+      sources:
+        # Loki Helm Chart from OCI repo
+        - repoURL: https://grafana.github.io/helm-charts
+          chart: loki
+          targetRevision: 6.55.0
+          helm:
+            releaseName: loki
+            valueFiles:
+              - $values/argocd/helm-values/grafana-loki/loki-values.yaml
+        # Promtail chart
+        - repoURL: https://grafana.github.io/helm-charts
+          chart: promtail
+          targetRevision: 6.17.1
+          helm:
+            releaseName: promtail
+            valueFiles:
+              - $values/argocd/helm-values/grafana-loki/promtail-values.yaml
+        # Git ref for $values lookups
+        - repoURL: https://github.com/silazare/argocd-infra-example
+          targetRevision: "{{metadata.annotations.target_revision}}"
+          ref: values
+      destination:
+        server: "{{server}}"
+        namespace: monitoring
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
