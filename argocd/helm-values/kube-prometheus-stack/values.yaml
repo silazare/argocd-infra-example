@@ -1,4 +1,20 @@
 ---
+kubelet:
+  enabled: true
+  namespace: kube-system
+  serviceMonitor:
+    cAdvisor: true
+    probes: true
+    resource: true
+    resourcePath: "/metrics/resource"
+    https: true
+
+kubeStateMetrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
 defaultRules:
   create: true
   rules:
@@ -9,7 +25,7 @@ defaultRules:
     k8s: true
     kubeApiserver: true
     kubeApiserverAvailability: true
-    kubeApiserverSlos: true
+    kubeApiserverSlos: false
     kubePrometheusGeneral: true
     kubePrometheusNodeRecording: true
     kubeProxy: true
@@ -40,12 +56,8 @@ grafana:
       domain: grafana.local
       root_url: http://grafana.local/
   ingress:
-    annotations:
-      alb.ingress.kubernetes.io/ssl-passthrough: "true"
-      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-      nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
     enabled: true
-    ingressClassName: nginx
+    ingressClassName: traefik
     hosts:
     - grafana.local
     path: /
@@ -86,12 +98,8 @@ prometheusOperator:
 alertmanager:
   enabled: true
   ingress:
-    annotations:
-      alb.ingress.kubernetes.io/ssl-passthrough: "true"
-      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-      nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
     enabled: true
-    ingressClassName: nginx
+    ingressClassName: traefik
     hosts:
       - alertmanager.local
     path: /
@@ -107,12 +115,8 @@ alertmanager:
              storage: 1Gi
 prometheus:
   ingress:
-    annotations:
-      alb.ingress.kubernetes.io/ssl-passthrough: "true"
-      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-      nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
     enabled: true
-    ingressClassName: nginx
+    ingressClassName: traefik
     hosts:
     - prometheus.local
     path: /
