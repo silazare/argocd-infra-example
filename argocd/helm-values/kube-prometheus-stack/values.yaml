@@ -3,11 +3,11 @@ kubelet:
   enabled: true
   namespace: kube-system
   serviceMonitor:
-    cAdvisor: true
+    cAdvisor: true # Enable container metrics
     probes: true
     resource: true
     resourcePath: "/metrics/resource"
-    https: true
+    https: true # Critical for EKS
 
 kubeStateMetrics:
   enabled: true
