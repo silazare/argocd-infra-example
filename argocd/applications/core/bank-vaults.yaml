@@ -43,11 +43,24 @@ spec:
       destination:
         server: "{{server}}"
         namespace: vault
+      # vault-secrets-webhook chart generates a self-signed cert via genSelfSignedCert on every Helm render
+      ignoreDifferences:
+        - group: admissionregistration.k8s.io
+          kind: MutatingWebhookConfiguration
+          jqPathExpressions:
+            - .webhooks[]?.clientConfig.caBundle
+        - group: ""
+          kind: Secret
+          name: vault-secrets-webhook-webhook-tls
+          jsonPointers:
+            - /data
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
         syncOptions:
           - CreateNamespace=true
-          # Vault CR is large + nested; SSA avoids the last-applied-config annotation size limit
+          # Vault CR is large and nested
+          # SSA avoids the last-applied-config annotation size limit
           - ServerSideApply=true
+          - RespectIgnoreDifferences=true

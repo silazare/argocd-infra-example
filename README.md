@@ -11,15 +11,16 @@ AWS EKS layer (Terraform):
 Core layer (ArgoCD at `argocd/applications/core/`):
 - [x] Traefik ingress controller
 - [x] AWS Load Balancer Controller (Helm release; IAM stays in TF)
-
-Applications layer (ArgoCD at `argocd/applications/apps/`):
-- [ ] Hashicorp Vault + Bank Vaults Operator — secrets management
-- [ ] Kube-Prometheus-Stack — metrics
-- [ ] Grafana Loki + Promtail — logging
+- [x] Kube-Prometheus-Stack — metrics
+- [x] Grafana Loki + Promtail — logging
+- [x] Hashicorp Vault + Bank Vaults Operator — secrets management
 - [ ] Trivy Operator — security
 - [ ] Kyverno — policy
 - [ ] Grafana Tempo — tracing
-- [ ] Banzai Logging Operator — optional
+
+Applications layer (ArgoCD at `argocd/applications/apps/`):
+- [ ] Demo App — for Vault secret injection demo
+- [ ] Hipster App — Demo app without Istio
 
 
 ## Deployment
@@ -31,7 +32,7 @@ Applications layer (ArgoCD at `argocd/applications/apps/`):
 
 ### 1. Terraform
 
-```bash
+```shell
 cd terraform
 terraform init -upgrade
 terraform apply
@@ -42,14 +43,14 @@ terraform apply
 During the first minutesthe ArgoCD UI is not yet reachable via `argocd.local`. 
 Access the UI via port-forward:
 
-```bash
+```shell
 kubectl -n argocd port-forward svc/argocd-server 8080:80
 # open http://localhost:8080
 ```
 
 ### 3. Map the NLB IP into `/etc/hosts`
 
-```bash
+```shell
 kubectl -n traefik get svc traefik \
   -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' \
   | xargs dig +short
@@ -57,20 +58,20 @@ kubectl -n traefik get svc traefik \
 
 Pick any one of the returned IPs and add:
 
-```
+```shell
 <IP>  argocd.local vault.local hipster.local grafana.local prometheus.local alertmanager.local
 ```
 
 ### 4. Retrieve ArgoCD admin password
 
-```bash
+```shell
 kubectl -n argocd get secret argocd-initial-admin-secret \
   -o jsonpath="{.data.password}" | base64 -d; echo
 ```
 
 Login to CLI and add the GitOps repo (if not public):
 
-```bash
+```shell
 argocd login argocd.local:443
 
 argocd repo add https://github.com/silazare/argocd-infra-example.git \
@@ -86,7 +87,7 @@ k -n monitoring get secret kube-prometheus-stack-grafana -o jsonpath="{.data.adm
 ```
 
 Login to Grafana:
-```
+```shell
 http://grafana.local/
 ```
 
@@ -96,35 +97,23 @@ Loki deployed as a separate components Loki in SingleBinary with filesystem and 
 https://grafana.com/docs/loki/latest/setup/install/helm/install-monolithic/#single-replica
 
 Login to Grafana and explore logs and check that Loki datasource is accessible:
-```
+```shell
 http://grafana.local/
 ```
 
-## Moving applications to ArgoCD pattern
+## 7. Bank-vaults (demo example with local vault file unsealer)
 
-1. Drop the chart's values into `argocd/helm-values/<app>/values.yaml`.
-2. Write an `Application` (static values) or `ApplicationSet` (needs cluster Secret annotations) YAML in `argocd/applications/apps/<app>.yaml` or `argocd/applications/core/<app>.yaml`.
-3. Push to the repo — ArgoCD picks it up automatically
+Inspired by this [demo](https://github.com/sagikazarmark/demo-bank-vaults/tree/main)
 
+Wait until Vault will be synced
 
-## Bank-vaults deploy (demo example with local vault file unsealer)
-
-Also inspired by this [demo](https://github.com/sagikazarmark/demo-bank-vaults/tree/main)
-
-1) Create Vault application:
-```
-k apply -f bank-vaults/application.yaml
-```
-
-2) Wait until Vault will be synced
-
-3) Login to Vault UI and retreive root token:
-```
+Login to Vault UI and retreive root token:
+```shell
 k -n vault get secret vault-unseal-keys -o jsonpath="{.data.vault-root}" | base64 -d
 ```
 
-4) Login to Vault CLI:
-```
+Login to Vault CLI:
+```shell
 export VAULT_ADDR=http://vault.local
 export VAULT_SKIP_VERIFY=true
 vault status
@@ -134,12 +123,15 @@ vault kv get secret/mysql
 vault kv get secret/accounts/aws
 ```
 
-5) Deploy demo application and check webhook logs and application POD:
-```
-k apply -f demo-app/.
-```
+Deploy demo application and check webhook logs and application POD:
 
-6) You can retreive secrets inside the container via command: `/vault/vault-env env`
+You can retreive secrets inside the container via command: `/vault/vault-env env`
+
+## Moving applications to ArgoCD pattern
+
+1. Drop the chart's values into `argocd/helm-values/<app>/values.yaml`.
+2. Write an `Application` (static values) or `ApplicationSet` (needs cluster Secret annotations) YAML in `argocd/applications/apps/<app>.yaml` or `argocd/applications/core/<app>.yaml`.
+3. Push to the repo — ArgoCD picks it up automatically
 
 
 ## Hipster demo app deploy (without Istio)
