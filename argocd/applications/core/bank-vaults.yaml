@@ -54,6 +54,13 @@ spec:
           name: vault-secrets-webhook-webhook-tls
           jsonPointers:
             - /data
+        # The Deployment embeds sha256 of the Secret/ConfigMap as pod-template annotations
+        - group: apps
+          kind: Deployment
+          name: vault-secrets-webhook
+          jqPathExpressions:
+            - .spec.template.metadata.annotations."checksum/secret"
+            - .spec.template.metadata.annotations."checksum/config"
       syncPolicy:
         automated:
           prune: true

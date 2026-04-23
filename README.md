@@ -93,7 +93,7 @@ http://grafana.local/
 
 ## 6. Grafana Loki
 
-Loki deployed as a separate components Loki in SingleBinary with filesystem and Promtail.
+Loki deployed as a separate components Loki in SingleBinary with filesystem and Promtail. This setup is non-production.
 https://grafana.com/docs/loki/latest/setup/install/helm/install-monolithic/#single-replica
 
 Login to Grafana and explore logs and check that Loki datasource is accessible:
@@ -101,9 +101,19 @@ Login to Grafana and explore logs and check that Loki datasource is accessible:
 http://grafana.local/
 ```
 
-## 7. Bank-vaults (demo example with local vault file unsealer)
+## 7. Bank Vault Operator (demo example with local vault file unsealer)
 
 Inspired by this [demo](https://github.com/sagikazarmark/demo-bank-vaults/tree/main)
+
+### Important considerations
+
+- This setup is non-production, becase unseal keys are stored in the same cluster and k8s secrets, consider KMS
+- The unseal keys and root token are managed by the Bank-Vaults operator.
+- There are 5 key shares created, with a threshold of 3 required to unseal Vault.
+- The unseal information is stored as Kubernetes Secrets in the "vault" namespace.
+- The secrets managed by Vault are stored in the Raft storage, which is persisted on the Kubernetes PersistentVolumes.
+- Each Vault pod will have its own PersistentVolume, and Raft ensures that the data is replicated across these volumes for high availability.
+
 
 Wait until Vault will be synced
 
