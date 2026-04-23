@@ -79,6 +79,27 @@ argocd repo add https://github.com/silazare/argocd-infra-example.git \
 argocd repo add ghcr.io --type helm --name stable --enable-oci
 ```
 
+## 5. Kube-prometheus-stack admin password
+
+```shell
+k -n monitoring get secret kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 -d
+```
+
+Login to Grafana:
+```
+http://grafana.local/
+```
+
+## 6. Grafana Loki
+
+Loki deployed as a separate components Loki in SingleBinary with filesystem and Promtail.
+https://grafana.com/docs/loki/latest/setup/install/helm/install-monolithic/#single-replica
+
+Login to Grafana and explore logs and check that Loki datasource is accessible:
+```
+http://grafana.local/
+```
+
 ## Moving applications to ArgoCD pattern
 
 1. Drop the chart's values into `argocd/helm-values/<app>/values.yaml`.
@@ -120,41 +141,6 @@ k apply -f demo-app/.
 
 6) You can retreive secrets inside the container via command: `/vault/vault-env env`
 
-## Kube-prometheus-stack deploy
-
-1) Create Kube-prometheus-stack application:
-```
-k apply -f kube-prometheus-stack/application.yaml
-```
-
-2) Wait until app will be synced
-
-3) Retrieve Grafana admin password:
-```
-k -n monitoring get secret kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 -d
-```
-
-4) Login to Grafana:
-```
-http://grafana.local/
-```
-
-## Loki deploy
-
-Loki deployed as a separate components Loki in SingleBinary with filesystem and Promtail.
-https://grafana.com/docs/loki/latest/setup/install/helm/install-monolithic/#single-replica
-
-1) Create Loki application:
-```
-k apply -f loki/application.yaml
-```
-
-2) Wait until app will be synced
-
-3) Login to Grafana and explore logs and check that Loki datasource is accessible:
-```
-http://grafana.local/
-```
 
 ## Hipster demo app deploy (without Istio)
 
