@@ -6,9 +6,15 @@ metadata:
   namespace: "vault"
 spec:
   size: 3
-  image: docker.io/hashicorp/vault:1.18.3
-  bankVaultsImage: ghcr.io/bank-vaults/bank-vaults:v1.31.3
-  statsdImage: docker.io/prom/statsd-exporter:v0.28.0
+  # image           — upstream HashiCorp Vault server, independent release cycle.
+  # bankVaultsImage — bank-vaults CLI (sidecar + Configurer Job) - init/unseal + applies externalConfig.
+  #                   Bump together with the vault-operator chart version as same upstream release.
+  image: docker.io/hashicorp/vault:1.21.4
+  # https://github.com/bank-vaults/bank-vaults/releases
+  # https://github.com/bank-vaults/vault-operator/blob/main/deploy/charts/vault-operator/values.yaml#L156
+  bankVaultsImage: ghcr.io/bank-vaults/bank-vaults:v1.32.1
+  # https://github.com/prometheus/statsd_exporter/releases
+  statsdImage: docker.io/prom/statsd-exporter:v0.29.0
 
   # Common annotations for all created resources
   annotations:

@@ -18,25 +18,30 @@ spec:
     spec:
       project: default
       sources:
-        # Vault-operator Helm Chart from OCI repo
+        # https://bank-vaults.dev/docs/installing/
+        # vault-operator — watches Vault CR, reconciles StatefulSet + Configurer Job.
+        # Bump this chart together with bankVaultsImage in vault-cr.yaml
+        # https://github.com/bank-vaults/vault-operator/tree/main/deploy/charts/vault-operator
         - chart: bank-vaults/helm-charts/vault-operator
           repoURL: ghcr.io
-          targetRevision: 1.22.4
+          targetRevision: 1.23.4
           helm:
             releaseName: vault-operator
             valueFiles:
               - $values/argocd/helm-values/bank-vaults/vault-operator-values.yaml
-        # Vault-secrets-webhook Helm Chart from OCI repo
+        # vault-secrets-webhook — mutating admission webhook, injects secret-fetch
+        # https://github.com/bank-vaults/vault-secrets-webhook/tree/main/deploy/charts/vault-secrets-webhook
         - chart: bank-vaults/helm-charts/vault-secrets-webhook
           repoURL: ghcr.io
-          targetRevision: 1.21.4
+          targetRevision: 1.22.2
           helm:
             releaseName: vault-secrets-webhook
-        # Namespace, RBAC, Vault CR — raw manifests
+        # Namespace, RBAC and the Vault CR
+        # Image versions for the Vault cluster are pinned inside vault-cr.yaml
         - repoURL: https://github.com/silazare/argocd-infra-example
           targetRevision: "{{metadata.annotations.target_revision}}"
           path: argocd/manifests/bank-vaults
-        # Git ref for $values lookups
+        # Git ref used by the $values lookup in the vault-operator source
         - repoURL: https://github.com/silazare/argocd-infra-example
           targetRevision: "{{metadata.annotations.target_revision}}"
           ref: values

@@ -101,9 +101,25 @@ Login to Grafana and explore logs and check that Loki datasource is accessible:
 http://grafana.local/
 ```
 
-## 7. Bank Vault Operator (demo example with local vault file unsealer)
+## 7. Bank Vault Operator (example with local vault file unsealer)
 
+https://bank-vaults.dev/docs/installing/
 Inspired by this [demo](https://github.com/sagikazarmark/demo-bank-vaults/tree/main)
+
+### Components and version chain
+
+Three independent pieces make up the stack:
+
+| Component | Source | Role |
+|---|---|---|
+| `vault-operator` | Helm chart | Kubernetes operator. Watches the `Vault` CR and reconciles the Vault StatefulSet + Configurer Job. |
+| `vault-secrets-webhook` | Helm chart | Mutating admission webhook. Injects a secret-fetch sidecar into pods annotated with `vault.security.banzaicloud.io/*`. Independent of the operator — works on its own. |
+| `Vault` CR | Manifest | Declarative spec of the Vault cluster itself. Read by the operator. |
+
+The `Vault` CR pins 2 container images:
+
+- `image: hashicorp/vault` — upstream HashiCorp Vault server. Independent release cycle.
+- `bankVaultsImage: bank-vaults/bank-vaults` — the bank-vaults CLI. Runs as sidecar in each Vault pod and as the Configurer Job. Handles init/unseal (keys stored in a K8s Secret) and applies everything under `externalConfig:` (policies, auth methods, secrets engines, `startupSecrets`) through the Vault API.
 
 ### Important considerations
 
