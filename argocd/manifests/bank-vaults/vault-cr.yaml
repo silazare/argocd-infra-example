@@ -111,6 +111,8 @@ spec:
   # A YAML representation of a final vault config file.
   # See https://www.vaultproject.io/docs/configuration/ for more information.
   config:
+    # Required mlock option since Vault 1.20
+    disable_mlock: true
     storage:
       raft:
         path: "${ .Env.VAULT_STORAGE_FILE }" # An example how Vault config environment interpolation can be used
