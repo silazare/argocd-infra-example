@@ -98,9 +98,11 @@ grafana:
   dashboards:
     default:
       loki-kubernetes-logs:
-        gnetId: 18494    # https://grafana.com/grafana/dashboards/18494
+        gnetId: 18494
         revision: 1
-        datasource: Loki
+        datasource:
+          - name: DS_LOKI
+            value: Loki
 
 prometheusOperator:
   admissionWebhooks:
