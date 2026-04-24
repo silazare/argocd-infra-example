@@ -98,14 +98,17 @@ grafana:
             path: /var/lib/grafana/dashboards/default
   dashboards:
     default:
-      loki-kubernetes-logs:
+      loki-kubernetes-logs-18494:
         gnetId: 18494
         revision: 1
-        # Chart looks for the literal placeholder `${<name>}` — so `name` must include
-        # the full string between the braces, including the DS_ prefix.
-        # `value` becomes the substituted UID; Loki datasource is pinned `uid: loki` above.
         datasource:
           - name: DS_GRAFANACLOUD-SS3RG3-LOGS
+            value: loki
+      loki-kubernetes-logs-15141:
+        gnetId: 15141
+        revision: 1
+        datasource:
+          - name: DS_LOKI
             value: loki
 
 prometheusOperator:
