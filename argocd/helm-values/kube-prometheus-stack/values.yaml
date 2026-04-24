@@ -101,8 +101,11 @@ grafana:
       loki-kubernetes-logs:
         gnetId: 18494
         revision: 1
+        # Chart looks for the literal placeholder `${<name>}` — so `name` must include
+        # the full string between the braces, including the DS_ prefix.
+        # `value` becomes the substituted UID; Loki datasource is pinned `uid: loki` above.
         datasource:
-          - name: GRAFANACLOUD-SS3RG3-LOGS
+          - name: DS_GRAFANACLOUD-SS3RG3-LOGS
             value: loki
 
 prometheusOperator:
