@@ -180,12 +180,13 @@ spec:
             policies: ["allow_secrets"]
             ttl: 1h
 
-          # Allow every pod in the hipster namespace to use the secret kv store
+          # Allow every pod in the hipster namespace to use the secret kv store and the pki backend
           # Add 'vault.security.banzaicloud.io/vault-role: "hipster"' annotation to resources to use this role
+          # allow_pki is required for the PKI-on-disk demo (adservice consul-template sidecar)
           - name: hipster
             bound_service_account_names: ["*"]
             bound_service_account_namespaces: ["hipster"]
-            policies: ["allow_secrets"]
+            policies: ["allow_secrets", "allow_pki"]
             ttl: 1h
 
           # Allow access for the vault secrets webhook
@@ -246,6 +247,18 @@ spec:
           data:
             MYSQL_ROOT_PASSWORD: s3cr3t
             MYSQL_PASSWORD: 3xtr3ms3cr3t
+      - type: kv
+        path: secret/data/payment
+        data:
+          data:
+            STRIPE_API_KEY: sk_test_demoStripeKey
+      - type: kv
+        path: secret/data/smtp
+        data:
+          data:
+            SMTP_HOST: smtp.example.com
+            SMTP_USER: hipster
+            SMTP_PASSWORD: s3cr3t-smtp-pw
 
   secretInitsConfig:
     - name: VAULT_LOG_LEVEL

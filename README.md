@@ -149,10 +149,6 @@ vault kv get secret/mysql
 vault kv get secret/accounts/aws
 ```
 
-Deploy demo application and check webhook logs and application POD:
-
-You can retreive secrets inside the container via command: `/vault/vault-env env`
-
 ## Moving applications to ArgoCD pattern
 
 1. Drop the chart's values into `argocd/helm-values/<app>/values.yaml`.
@@ -160,16 +156,52 @@ You can retreive secrets inside the container via command: `/vault/vault-env env
 3. Push to the repo — ArgoCD picks it up automatically
 
 
-## Hipster demo app deploy (without Istio)
+## Hipster demo app without Istio (bank-vaults injection demo)
 
-1) Create Hipster application:
-```
-k apply -f hipster-app/application.yaml
-```
+Managed by the [hipster ApplicationSet](argocd/applications/apps/hipster.yaml); manifests live in [argocd/manifests/hipster/](argocd/manifests/hipster/). UI at http://hipster.local/ once Synced.
 
-2) Wait until app will be synced
+Each service demonstrates one secret-injection pattern. The Hipster app code itself
+doesn't consume these values — they're only there so the webhook has something to
+mutate and you can verify by exec-ing into the pod.
 
-3) Login to Frontend UI and make sure app is working fine:
-```
-http://hipster.local/
+| Service | Pattern | Where it's wired |
+|---|---|---|
+| currencyservice | Inline env: `value: vault:secret/...#KEY` | [currencyservice.yaml](argocd/manifests/hipster/currencyservice.yaml) |
+| paymentservice | Secret with `vault:` refs → `secretKeyRef` | [paymentservice.yaml](argocd/manifests/hipster/paymentservice.yaml) (Deployment + `demo-payment-credentials` Secret) |
+| emailservice | ConfigMap with `vault:` refs → `envFrom` | [emailservice.yaml](argocd/manifests/hipster/emailservice.yaml) (Deployment + `demo-smtp-config` ConfigMap) |
+| cartservice | KV-v2 version pinning: `vault:...#KEY#1` | [cartservice.yaml](argocd/manifests/hipster/cartservice.yaml) |
+| adservice | PKI cert on disk via `consul-template` sidecar | [adservice.yaml](argocd/manifests/hipster/adservice.yaml) (Deployment + `demo-pki-ct-config` ConfigMap) |
+
+You can retreive secrets inside the POD via command: `/vault/vault-env env`
+
+Verify resolved secrets values:
+
+```bash
+# Pattern 1 — inline env resolved by vault-env at container start (currencyservice):
+k -n hipster exec deploy/currencyservice -- /vault/vault-env env | grep AWS_
+
+# Pattern 2 — Secret with mutate: "skip"; real value stays as a `vault:...` placeholder in
+# etcd, and vault-env resolves it in the paymentservice process at runtime.
+k -n hipster get secret demo-payment-credentials -o jsonpath='{.data.stripe-api-key}' | base64 -d; echo
+# Expect the literal string: vault:secret/data/payment#STRIPE_API_KEY
+k -n hipster exec deploy/paymentservice -- /vault/vault-env env | grep STRIPE_API_KEY
+# Expect the resolved value: sk_test_demoStripeKey
+
+# Pattern 3 — ConfigMap without mutate: "skip"; the webhook rewrites the CM at admission,
+# so etcd stores real values and the pod can read them with a plain `env` (no vault-env needed).
+k -n hipster get cm demo-smtp-config -o jsonpath='{.data.SMTP_PASSWORD}'; echo
+# Expect the real value: s3cr3t-smtp-pw
+k -n hipster exec deploy/emailservice -- env | grep SMTP_
+
+# Pattern 4 — KV-v2 version pin (cartservice). Pod always reads v1:
+k -n hipster exec deploy/cartservice -- /vault/vault-env env | grep MYSQL_PASSWORD
+# Write a newer version and restart — pod still sees the v1 value because the ref is pinned:
+vault kv put secret/mysql MYSQL_PASSWORD=changed-in-v2 MYSQL_ROOT_PASSWORD=s3cr3t
+k -n hipster rollout restart deploy/cartservice
+k -n hipster exec deploy/cartservice -- /vault/vault-env env | grep MYSQL_PASSWORD
+
+# Pattern 5 — PKI cert written to disk by consul-template sidecar (adservice):
+kubectl -n hipster exec deploy/adservice -c server -- ls /vault/secrets/
+kubectl -n hipster exec deploy/adservice -c server -- \
+  sh -c 'openssl x509 -in /vault/secrets/server.crt -noout -subject -issuer -dates'
 ```

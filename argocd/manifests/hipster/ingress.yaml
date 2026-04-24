@@ -4,12 +4,8 @@ kind: Ingress
 metadata:
   name: hipster
   namespace: hipster
-  annotations:
-    alb.ingress.kubernetes.io/ssl-passthrough: "true"
-    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   rules:
   - host: hipster.local
     http:
