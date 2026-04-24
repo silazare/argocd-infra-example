@@ -19,8 +19,7 @@ Core layer (ArgoCD at `argocd/applications/core/`):
 - [ ] Grafana Tempo — tracing
 
 Applications layer (ArgoCD at `argocd/applications/apps/`):
-- [ ] Demo App — for Vault secret injection demo
-- [ ] Hipster App — Demo app without Istio
+- [x] Hipster App — Demo app without Istio
 
 
 ## Deployment
@@ -44,14 +43,14 @@ During the first minutesthe ArgoCD UI is not yet reachable via `argocd.local`.
 Access the UI via port-forward:
 
 ```shell
-kubectl -n argocd port-forward svc/argocd-server 8080:80
+k -n argocd port-forward svc/argocd-server 8080:80
 # open http://localhost:8080
 ```
 
 ### 3. Map the NLB IP into `/etc/hosts`
 
 ```shell
-kubectl -n traefik get svc traefik \
+k -n traefik get svc traefik \
   -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' \
   | xargs dig +short
 ```
@@ -65,7 +64,7 @@ Pick any one of the returned IPs and add:
 ### 4. Retrieve ArgoCD admin password
 
 ```shell
-kubectl -n argocd get secret argocd-initial-admin-secret \
+k -n argocd get secret argocd-initial-admin-secret \
   -o jsonpath="{.data.password}" | base64 -d; echo
 ```
 
@@ -187,11 +186,11 @@ k -n hipster get secret demo-payment-credentials -o jsonpath='{.data.stripe-api-
 k -n hipster exec deploy/paymentservice -- /vault/vault-env env | grep STRIPE_API_KEY
 # Expect the resolved value: sk_test_demoStripeKey
 
-# Pattern 3 — ConfigMap without mutate: "skip"; the webhook rewrites the CM at admission,
-# so etcd stores real values and the pod can read them with a plain `env` (no vault-env needed).
+# Pattern 3 — ConfigMap keeps the `vault:...` placeholder in etcd (webhook's admission-time mutation is off by default)
 k -n hipster get cm demo-smtp-config -o jsonpath='{.data.SMTP_PASSWORD}'; echo
-# Expect the real value: s3cr3t-smtp-pw
-k -n hipster exec deploy/emailservice -- env | grep SMTP_
+# Expect the literal string: vault:secret/data/smtp#SMTP_PASSWORD
+k -n hipster exec deploy/emailservice -- /vault/vault-env env | grep SMTP_
+# Expect resolved values: SMTP_HOST=smtp.example.com / SMTP_USER=hipster / SMTP_PASSWORD=s3cr3t-smtp-pw
 
 # Pattern 4 — KV-v2 version pin (cartservice). Pod always reads v1:
 k -n hipster exec deploy/cartservice -- /vault/vault-env env | grep MYSQL_PASSWORD
@@ -200,8 +199,9 @@ vault kv put secret/mysql MYSQL_PASSWORD=changed-in-v2 MYSQL_ROOT_PASSWORD=s3cr3
 k -n hipster rollout restart deploy/cartservice
 k -n hipster exec deploy/cartservice -- /vault/vault-env env | grep MYSQL_PASSWORD
 
-# Pattern 5 — PKI cert written to disk by consul-template sidecar (adservice):
-kubectl -n hipster exec deploy/adservice -c server -- ls /vault/secrets/
-kubectl -n hipster exec deploy/adservice -c server -- \
-  sh -c 'openssl x509 -in /vault/secrets/server.crt -noout -subject -issuer -dates'
+# Pattern 5 — PKI cert rendered to disk by the consul-template sidecar (adservice).
+# The adservice image has no openssl, so pipe the PEM to local openssl to inspect:
+k -n hipster exec deploy/adservice -c server -- ls -la /vault/secrets/
+k -n hipster exec deploy/adservice -c server -- cat /vault/secrets/server.crt \
+  | openssl x509 -noout -subject -issuer -dates
 ```

@@ -20,6 +20,7 @@ spec:
         # Demo pattern 5 — consul-template sidecar reads this ConfigMap and renders a PKI cert
         # (from Vault's pki secrets engine) to /vault/secrets/ in a shared emptyDir.
         vault.security.banzaicloud.io/vault-ct-configmap: "demo-pki-ct-config"
+        vault.security.banzaicloud.io/vault-agent: "true"
     spec:
       serviceAccountName: adservice
       terminationGracePeriodSeconds: 5
@@ -100,7 +101,11 @@ data:
   config.hcl: |
     vault {
       # VAULT_ADDR is injected into the sidecar by the webhook.
-      # Auth is Kubernetes SA-based, using the pod's token (hipster role → allow_pki).
+      # Auth: vault-agent (enabled via the vault-agent: "true" pod annotation) performs
+      # Kubernetes login and writes the token to this shared path; consul-template reads it.
+      # The agent runs with exit-after-auth by default, so the token's TTL (hipster role: 1h)
+      # bounds how long consul-template can keep issuing certs without a pod restart.
+      vault_agent_token_file = "/vault/.vault-token"
       retry {
         backoff = "1s"
       }
