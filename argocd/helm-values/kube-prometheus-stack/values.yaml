@@ -83,10 +83,22 @@ grafana:
       access: proxy
       url: http://loki-gateway.monitoring.svc.cluster.local/
 
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: default
+          orgId: 1
+          folder: ""
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
   dashboards:
     default:
       loki-kubernetes-logs:
-        gnetId: 15141    # https://grafana.com/grafana/dashboards/15141
+        gnetId: 18494    # https://grafana.com/grafana/dashboards/18494
         revision: 1
         datasource: Loki
 
