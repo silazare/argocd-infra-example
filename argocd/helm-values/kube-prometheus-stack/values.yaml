@@ -98,12 +98,6 @@ grafana:
             path: /var/lib/grafana/dashboards/default
   dashboards:
     default:
-      loki-kubernetes-logs-18494:
-        gnetId: 18494
-        revision: 1
-        datasource:
-          - name: DS_GRAFANACLOUD-SS3RG3-LOGS
-            value: loki
       loki-kubernetes-logs-15141:
         gnetId: 15141
         revision: 1
