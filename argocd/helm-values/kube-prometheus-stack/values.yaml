@@ -83,6 +83,13 @@ grafana:
       access: proxy
       url: http://loki-gateway.monitoring.svc.cluster.local/
 
+  dashboards:
+    default:
+      loki-kubernetes-logs:
+        gnetId: 15141    # https://grafana.com/grafana/dashboards/15141
+        revision: 1
+        datasource: Loki
+
 prometheusOperator:
   admissionWebhooks:
     enabled: true

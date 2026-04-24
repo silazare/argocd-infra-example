@@ -23,5 +23,5 @@ locals {
   karpenter_version = "1.11.1"
 
   # Git ref consumed by the root Application and propagated to all ApplicationSets
-  argocd_target_revision = "gitops-bridge"
+  argocd_target_revision = "master"
 }
