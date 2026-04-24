@@ -79,6 +79,7 @@ grafana:
   ## ref: http://docs.grafana.org/administration/provisioning/#datasources
   additionalDataSources:
     - name: Loki
+      uid: loki
       type: loki
       access: proxy
       url: http://loki-gateway.monitoring.svc.cluster.local/
@@ -102,7 +103,7 @@ grafana:
         revision: 1
         datasource:
           - name: GRAFANACLOUD-SS3RG3-LOGS
-            value: Loki
+            value: loki
 
 prometheusOperator:
   admissionWebhooks:
