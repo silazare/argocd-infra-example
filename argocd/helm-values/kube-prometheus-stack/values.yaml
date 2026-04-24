@@ -101,7 +101,7 @@ grafana:
         gnetId: 18494
         revision: 1
         datasource:
-          - name: DS_LOKI
+          - name: GRAFANACLOUD-SS3RG3-LOGS
             value: Loki
 
 prometheusOperator:
