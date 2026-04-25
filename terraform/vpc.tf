@@ -1,3 +1,4 @@
+// VPC module
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 6.0"
@@ -25,6 +26,7 @@ module "vpc" {
   tags = local.tags
 }
 
+// Traefik external security groups
 resource "aws_security_group" "ingress_traefik_external" {
   name        = "ingress-traefik-external"
   description = "Allow public HTTP and HTTPS traffic"
@@ -54,7 +56,7 @@ resource "aws_security_group" "ingress_traefik_external" {
   tags = merge(
     local.tags,
     {
-      Name = "ingress-nginx-external",
+      Name = "ingress-traefik-external",
     }
   )
 }

@@ -1,6 +1,4 @@
-################################################################################
-# Common data/locals
-################################################################################
+// Common data/locals
 
 data "aws_availability_zones" "available" {}
 data "aws_caller_identity" "current" {}
@@ -20,8 +18,10 @@ locals {
     Owner      = "slazarev"
   }
 
-  argocd_version                       = "9.5.2"
-  aws_load_balancer_controller_version = "3.2.1"
-  karpenter_version                    = "1.11.1"
-  traefik_ingress_controller_version   = "39.0.8"
+  # Chart versions for helm_releases in the EKS layer
+  argocd_version    = "9.5.2"
+  karpenter_version = "1.11.1"
+
+  # Git ref consumed by the root Application and propagated to all ApplicationSets
+  argocd_target_revision = "master"
 }

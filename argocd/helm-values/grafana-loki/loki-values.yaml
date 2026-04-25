@@ -32,17 +32,12 @@ loki:
     filesystem:
       chunks_directory: /var/loki/chunks
       rules_directory: /var/loki/rules
-      admin_api_directory: /var/loki/admin
 
 # Gateway and Ingress
 gateway:
   ingress:
     enabled: true
-    ingressClassName: nginx
-    annotations:
-      alb.ingress.kubernetes.io/ssl-passthrough: "true"
-      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-      nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    ingressClassName: traefik
     hosts:
       - host: loki.local
         paths:

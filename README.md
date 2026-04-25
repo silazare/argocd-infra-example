@@ -1,25 +1,53 @@
 # Infra Components
 
-AWS EKS cluster Core:
-- [x] Karpenter - EC2 nodes management
-- [x] ArgoCD - GitOps
-- [x] AWS Load Balancer Controller - ALB management
-- [x] Traefik Ingress Controller - Ingress
+AWS EKS layer (Terraform):
+- [x] VPC
+- [x] EKS cluster and EKS addons
+- [x] Karpenter
+- [x] AWS Load Balancer Controller IAM
+- [x] ArgoCD
+- [x] GitOps Bridge — cluster Secret + root Application
 
-AWS EKS cluster Applications:
-- [x] Hashicorp Vault + Bank Vaults Operator - Secrets management
-- [x] Kube-Prometheus-Stack - Metrics
-- [x] Grafana Loki + Promtail - Logging
-- [ ] Trivy Operator - Security
-- [ ] Kyverno - Security
-- [ ] Grafana Tempo - Tracing
-- [ ] Banzai Logging operator - (Optiona) Logging operator
+Core layer (ArgoCD at `argocd/applications/core/`):
+- [x] Traefik ingress controller
+- [x] AWS Load Balancer Controller (Helm release; IAM stays in TF)
+- [x] Kube-Prometheus-Stack — metrics
+- [x] Grafana Loki + Promtail — logging
+- [x] Hashicorp Vault + Bank Vaults Operator — secrets management
+- [ ] Trivy Operator — security
+- [ ] Kyverno — policy
+- [ ] Grafana Tempo — tracing
 
-## AWS EKS and ArgoCD deploy
+Applications layer (ArgoCD at `argocd/applications/apps/`):
+- [x] Hipster App — Demo app without Istio
 
-1) Deploy EKS cluster (VPC,EKS,Karpenter,ArgoCD,Traefik) with Terraform
 
-2) Map local domains in your `/etc/hosts` with created NLB IP address:
+## Deployment
+
+1. Terraform — creates VPC, EKS, Karpenter, ArgoCD, cluster Secret, root Application.
+2. ArgoCD picks up the root Application → recursively discovers `argocd/applications/core/` and `argocd/applications/apps/`.
+3. ApplicationSets materialise child Applications that install Traefik, ALB controller, etc.
+4. Traefik comes up, NLB gets provisioned by ALB controller, you map the NLB IP in `/etc/hosts`.
+
+### 1. Terraform
+
+```shell
+cd terraform
+terraform init -upgrade
+terraform apply
+```
+
+### 2. Wait for ArgoCD to sync core platform
+
+During the first minutesthe ArgoCD UI is not yet reachable via `argocd.local`. 
+Access the UI via port-forward:
+
+```shell
+k -n argocd port-forward svc/argocd-server 8080:80
+# open http://localhost:8080
+```
+
+### 3. Map the NLB IP into `/etc/hosts`
 
 ```shell
 k -n traefik get svc traefik \
@@ -27,45 +55,90 @@ k -n traefik get svc traefik \
   | xargs dig +short
 ```
 
-  - argocd.local
-  - vault.local
-  - hipster.local
-  - grafana.local
-  - prometheus.local
-  - alertmanager.local
+Pick any one of the returned IPs and add:
 
-3) Retrieve ArgoCD admin password:
-```
-k -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+```shell
+<IP>  argocd.local vault.local hipster.local grafana.local prometheus.local alertmanager.local
 ```
 
-4) Login to cli and init repos:
+### 4. Retrieve ArgoCD admin password
+
+```shell
+k -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d; echo
 ```
+
+Login to CLI and add the GitOps repo (if not public):
+
+```shell
 argocd login argocd.local:443
 
-argocd repo add https://github.com/silazare/argocd-infra-example.git --username silazare --password github_pat_xxxxx
+argocd repo add https://github.com/silazare/argocd-infra-example.git \
+  --username silazare --password github_pat_xxxxx
 
 argocd repo add ghcr.io --type helm --name stable --enable-oci
 ```
 
-## Bank-vaults deploy (demo example with local vault file unsealer)
+## 5. Kube-prometheus-stack admin password
 
-Also inspired by this (demo)[https://github.com/sagikazarmark/demo-bank-vaults/tree/main]
-
-1) Create Vault application:
-```
-k apply -f bank-vaults/application.yaml
+```shell
+k -n monitoring get secret kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 -d
 ```
 
-2) Wait until Vault will be synced
-
-3) Login to Vault UI and retreive root token:
+Login to Grafana:
+```shell
+http://grafana.local/
 ```
+
+## 6. Grafana Loki
+
+Loki deployed as a separate components Loki in SingleBinary with filesystem and Promtail. This setup is non-production.
+https://grafana.com/docs/loki/latest/setup/install/helm/install-monolithic/#single-replica
+
+Login to Grafana and explore logs and check that Loki datasource is accessible:
+```shell
+http://grafana.local/
+```
+
+## 7. Bank Vault Operator (example with local vault file unsealer)
+
+https://bank-vaults.dev/docs/installing/
+Inspired by this [demo](https://github.com/sagikazarmark/demo-bank-vaults/tree/main)
+
+### Components and version chain
+
+Three independent pieces make up the stack:
+
+| Component | Source | Role |
+|---|---|---|
+| `vault-operator` | Helm chart | Kubernetes operator. Watches the `Vault` CR and reconciles the Vault StatefulSet + Configurer Job. |
+| `vault-secrets-webhook` | Helm chart | Mutating admission webhook. Injects a secret-fetch sidecar into pods annotated with `vault.security.banzaicloud.io/*`. Independent of the operator — works on its own. |
+| `Vault` CR | Manifest | Declarative spec of the Vault cluster itself. Read by the operator. |
+
+The `Vault` CR pins 2 container images:
+
+- `image: hashicorp/vault` — upstream HashiCorp Vault server. Independent release cycle.
+- `bankVaultsImage: bank-vaults/bank-vaults` — the bank-vaults CLI. Runs as sidecar in each Vault pod and as the Configurer Job. Handles init/unseal (keys stored in a K8s Secret) and applies everything under `externalConfig:` (policies, auth methods, secrets engines, `startupSecrets`) through the Vault API.
+
+### Important considerations
+
+- This setup is non-production, becase unseal keys are stored in the same cluster and k8s secrets, consider KMS
+- The unseal keys and root token are managed by the Bank-Vaults operator.
+- There are 5 key shares created, with a threshold of 3 required to unseal Vault.
+- The unseal information is stored as Kubernetes Secrets in the "vault" namespace.
+- The secrets managed by Vault are stored in the Raft storage, which is persisted on the Kubernetes PersistentVolumes.
+- Each Vault pod will have its own PersistentVolume, and Raft ensures that the data is replicated across these volumes for high availability.
+
+
+Wait until Vault will be synced
+
+Login to Vault UI and retreive root token:
+```shell
 k -n vault get secret vault-unseal-keys -o jsonpath="{.data.vault-root}" | base64 -d
 ```
 
-4) Login to Vault CLI:
-```
+Login to Vault CLI:
+```shell
 export VAULT_ADDR=http://vault.local
 export VAULT_SKIP_VERIFY=true
 vault status
@@ -75,59 +148,60 @@ vault kv get secret/mysql
 vault kv get secret/accounts/aws
 ```
 
-5) Deploy demo application and check webhook logs and application POD:
-```
-k apply -f demo-app/.
-```
+## Moving applications to ArgoCD pattern
 
-6) You can retreive secrets inside the container via command: `/vault/vault-env env`
+1. Drop the chart's values into `argocd/helm-values/<app>/values.yaml`.
+2. Write an `Application` (static values) or `ApplicationSet` (needs cluster Secret annotations) YAML in `argocd/applications/apps/<app>.yaml` or `argocd/applications/core/<app>.yaml`.
+3. Push to the repo — ArgoCD picks it up automatically
 
-## Kube-prometheus-stack deploy
 
-1) Create Kube-prometheus-stack application:
-```
-k apply -f kube-prometheus-stack/application.yaml
-```
+## Hipster demo app without Istio (bank-vaults injection demo)
 
-2) Wait until app will be synced
+Managed by the [hipster ApplicationSet](argocd/applications/apps/hipster.yaml); manifests live in [argocd/manifests/hipster/](argocd/manifests/hipster/). UI at http://hipster.local/ once Synced.
 
-3) Retrieve Grafana admin password:
-```
-k -n monitoring get secret kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 -d
-```
+Each service demonstrates one secret-injection pattern. The Hipster app code itself
+doesn't consume these values — they're only there so the webhook has something to
+mutate and you can verify by exec-ing into the pod.
 
-4) Login to Grafana:
-```
-http://grafana.local/
-```
+| Service | Pattern | Where it's wired |
+|---|---|---|
+| currencyservice | Inline env: `value: vault:secret/...#KEY` | [currencyservice.yaml](argocd/manifests/hipster/currencyservice.yaml) |
+| paymentservice | Secret with `vault:` refs → `secretKeyRef` | [paymentservice.yaml](argocd/manifests/hipster/paymentservice.yaml) (Deployment + `demo-payment-credentials` Secret) |
+| emailservice | ConfigMap with `vault:` refs → `envFrom` | [emailservice.yaml](argocd/manifests/hipster/emailservice.yaml) (Deployment + `demo-smtp-config` ConfigMap) |
+| cartservice | KV-v2 version pinning: `vault:...#KEY#1` | [cartservice.yaml](argocd/manifests/hipster/cartservice.yaml) |
+| adservice | PKI cert on disk via `consul-template` sidecar | [adservice.yaml](argocd/manifests/hipster/adservice.yaml) (Deployment + `demo-pki-ct-config` ConfigMap) |
 
-## Loki deploy
+You can retreive secrets inside the POD via command: `/vault/vault-env env`
 
-Loki deployed as a separate components Loki in SingleBinary with filesystem and Promtail.
-https://grafana.com/docs/loki/latest/setup/install/helm/install-monolithic/#single-replica
+Verify resolved secrets values:
 
-1) Create Loki application:
-```
-k apply -f loki/application.yaml
-```
+```bash
+# Pattern 1 — inline env resolved by vault-env at container start (currencyservice):
+k -n hipster exec deploy/currencyservice -- /vault/vault-env env | grep AWS_
 
-2) Wait until app will be synced
+# Pattern 2 — Secret with mutate: "skip"; real value stays as a `vault:...` placeholder in
+# etcd, and vault-env resolves it in the paymentservice process at runtime.
+k -n hipster get secret demo-payment-credentials -o jsonpath='{.data.stripe-api-key}' | base64 -d; echo
+# Expect the literal string: vault:secret/data/payment#STRIPE_API_KEY
+k -n hipster exec deploy/paymentservice -- /vault/vault-env env | grep STRIPE_API_KEY
+# Expect the resolved value: sk_test_demoStripeKey
 
-3) Login to Grafana and explore logs and check that Loki datasource is accessible:
-```
-http://grafana.local/
-```
+# Pattern 3 — ConfigMap keeps the `vault:...` placeholder in etcd (webhook's admission-time mutation is off by default)
+k -n hipster get cm demo-smtp-config -o jsonpath='{.data.SMTP_PASSWORD}'; echo
+# Expect the literal string: vault:secret/data/smtp#SMTP_PASSWORD
+k -n hipster exec deploy/emailservice -- /vault/vault-env env | grep SMTP_
+# Expect resolved values: SMTP_HOST=smtp.example.com / SMTP_USER=hipster / SMTP_PASSWORD=s3cr3t-smtp-pw
 
-## Hipster demo app deploy (without Istio)
+# Pattern 4 — KV-v2 version pin (cartservice). Pod always reads v1:
+k -n hipster exec deploy/cartservice -- /vault/vault-env env | grep MYSQL_PASSWORD
+# Write a newer version and restart — pod still sees the v1 value because the ref is pinned:
+vault kv put secret/mysql MYSQL_PASSWORD=changed-in-v2 MYSQL_ROOT_PASSWORD=s3cr3t
+k -n hipster rollout restart deploy/cartservice
+k -n hipster exec deploy/cartservice -- /vault/vault-env env | grep MYSQL_PASSWORD
 
-1) Create Hipster application:
-```
-k apply -f hipster-app/application.yaml
-```
-
-2) Wait until app will be synced
-
-3) Login to Frontend UI and make sure app is working fine:
-```
-http://hipster.local/
+# Pattern 5 — PKI cert rendered to disk by the consul-template sidecar (adservice).
+# The adservice image has no openssl, so pipe the PEM to local openssl to inspect:
+k -n hipster exec deploy/adservice -c server -- ls -la /vault/secrets/
+k -n hipster exec deploy/adservice -c server -- cat /vault/secrets/server.crt \
+  | openssl x509 -noout -subject -issuer -dates
 ```

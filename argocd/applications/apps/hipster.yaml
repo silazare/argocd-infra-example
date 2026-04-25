@@ -1,0 +1,34 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: hipster
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            argocd.argoproj.io/secret-type: cluster
+  template:
+    metadata:
+      name: hipster
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+      sources:
+        # Namespace, Ingress, services, demo ConfigMaps/Secrets for bank-vaults injection patterns.
+        # See argocd/manifests/hipster/README.md for the catalog of demo patterns.
+        - repoURL: https://github.com/silazare/argocd-infra-example
+          targetRevision: "{{metadata.annotations.target_revision}}"
+          path: argocd/manifests/hipster
+      destination:
+        server: "{{server}}"
+        namespace: hipster
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

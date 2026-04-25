@@ -1,4 +1,20 @@
 ---
+kubelet:
+  enabled: true
+  namespace: kube-system
+  serviceMonitor:
+    cAdvisor: true # Enable container metrics
+    probes: true
+    resource: true
+    resourcePath: "/metrics/resource"
+    https: true # Critical for EKS
+
+kubeStateMetrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
 defaultRules:
   create: true
   rules:
@@ -9,7 +25,7 @@ defaultRules:
     k8s: true
     kubeApiserver: true
     kubeApiserverAvailability: true
-    kubeApiserverSlos: true
+    kubeApiserverSlos: false
     kubePrometheusGeneral: true
     kubePrometheusNodeRecording: true
     kubeProxy: true
@@ -40,12 +56,8 @@ grafana:
       domain: grafana.local
       root_url: http://grafana.local/
   ingress:
-    annotations:
-      alb.ingress.kubernetes.io/ssl-passthrough: "true"
-      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-      nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
     enabled: true
-    ingressClassName: nginx
+    ingressClassName: traefik
     hosts:
     - grafana.local
     path: /
@@ -67,9 +79,31 @@ grafana:
   ## ref: http://docs.grafana.org/administration/provisioning/#datasources
   additionalDataSources:
     - name: Loki
+      uid: loki
       type: loki
       access: proxy
       url: http://loki-gateway.monitoring.svc.cluster.local/
+
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: default
+          orgId: 1
+          folder: ""
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+  dashboards:
+    default:
+      loki-kubernetes-logs-15141:
+        gnetId: 15141
+        revision: 1
+        datasource:
+          - name: DS_LOKI
+            value: loki
 
 prometheusOperator:
   admissionWebhooks:
@@ -86,12 +120,8 @@ prometheusOperator:
 alertmanager:
   enabled: true
   ingress:
-    annotations:
-      alb.ingress.kubernetes.io/ssl-passthrough: "true"
-      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-      nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
     enabled: true
-    ingressClassName: nginx
+    ingressClassName: traefik
     hosts:
       - alertmanager.local
     path: /
@@ -107,12 +137,8 @@ alertmanager:
              storage: 1Gi
 prometheus:
   ingress:
-    annotations:
-      alb.ingress.kubernetes.io/ssl-passthrough: "true"
-      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-      nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
     enabled: true
-    ingressClassName: nginx
+    ingressClassName: traefik
     hosts:
     - prometheus.local
     path: /

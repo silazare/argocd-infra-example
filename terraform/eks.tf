@@ -1,7 +1,4 @@
-################################################################################
-# Cluster
-################################################################################
-
+// EKS cluster
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 21.18"
@@ -98,6 +95,11 @@ module "eks" {
           effect = "NO_SCHEDULE"
         }
       }
+
+      tags = {
+        # Tag is required for AmazonEBSCSIDriverEKSClusterScopedPolicy
+        "ebs.csi.aws.com/cluster-name" = local.name
+      }
     }
   }
 
@@ -109,35 +111,7 @@ module "eks" {
   tags = local.tags
 }
 
-################################################################################
-# EBS CSI driver — Pod Identity for controller SA
-################################################################################
-
-data "aws_iam_policy_document" "ebs_csi_assume" {
-  statement {
-    actions = ["sts:AssumeRole", "sts:TagSession"]
-    principals {
-      type        = "Service"
-      identifiers = ["pods.eks.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role" "ebs_csi_controller" {
-  name               = "${local.name}-ebs-csi-controller"
-  assume_role_policy = data.aws_iam_policy_document.ebs_csi_assume.json
-  tags               = local.tags
-}
-
-resource "aws_iam_role_policy_attachment" "ebs_csi_controller" {
-  role       = aws_iam_role.ebs_csi_controller.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEBSCSIDriverEKSClusterScopedPolicy"
-}
-
-################################################################################
-# Controller & Node IAM roles, SQS Queue, Eventbridge Rules
-################################################################################
-
+// Karpenter module
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
   version = "~> 21.18"
