@@ -48,6 +48,20 @@ gateway:
 minio:
   enabled: false
 
+# Synthetic write-then-read probe daemonset, expects Promtail — useful in prod
+lokiCanary:
+  enabled: false
+
+# Helm test runs a probe against the canary
+test:
+  enabled: false
+
+# Memcached chunk + results cache — useful in prod
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+
 deploymentMode: SingleBinary
 
 singleBinary:

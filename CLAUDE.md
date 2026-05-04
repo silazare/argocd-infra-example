@@ -24,6 +24,7 @@ terraform/                        # cluster-layer
   eks.tf                          # EKS module (addons incl. EBS CSI Pod Identity assoc) + Karpenter submodule
   karpenter.tf                    # Karpenter Helm CRD + chart + default NodePool/NodeClass
   iam.tf                          # Shared Pod Identity assume policy + EBS CSI role + ALB controller role/policy/assoc
+  storage-classes.tf              # gp3 default StorageClass (kept in TF, not ArgoCD, to avoid bootstrap deadlocks)
   argocd.tf                       # ArgoCD Helm release + cluster Secret + root Application
 
 argocd/applications/              # GitOps — discovered recursively by the root Application
@@ -33,7 +34,6 @@ argocd/applications/              # GitOps — discovered recursively by the roo
     kube-prometheus-stack.yaml    # ApplicationSet, multi-source (chart + git $values)
     grafana-loki.yaml             # ApplicationSet, multi-source (loki + promtail charts + git $values)
     bank-vaults.yaml              # ApplicationSet, multi-source (operator + webhook charts + raw manifests + git $values)
-    storage-classes.yaml          # ApplicationSet, raw manifests only
   apps/                           # workload-layer
     hipster.yaml                  # ApplicationSet, raw manifests only
 
@@ -50,7 +50,6 @@ argocd/helm-values/               # static Helm values pulled via multi-source $
 argocd/manifests/                 # raw k8s manifests referenced by ApplicationSets that don't install Helm
   bank-vaults/                    # Namespace + RBAC + Vault CR (externalConfig: policies, k8s-auth roles, PKI, startupSecrets)
   hipster/                        # per-service Deployments + inline demo Secret/ConfigMap for each bank-vaults injection pattern
-  storage-classes/                # gp3 StorageClass (EBS CSI)
 
 _archive/                         # retired manifests kept for reference (old imperative demo-app, pre-GitOps Vault CR)
 ```
@@ -91,7 +90,7 @@ Terraform-layer:
 - **ArgoCD Helm release** → **cluster Secret** → **ApplicationSets**: the chain that lets Git manifests consume TF outputs.
 
 GitOps-layer:
-- **storage-classes** → provides `gp3` → consumed by any PVC in the cluster (e.g. `vault-raft-*` in the Vault StatefulSet). Kept as a standalone ApplicationSet so SC lifecycle isn't tied to any one workload.
+- **`gp3` StorageClass** → provided by `terraform/storage-classes.tf` (`kubernetes_storage_class_v1`) → consumed by any PVC in the cluster (e.g. `vault-raft-*` in the Vault StatefulSet). Lives in the TF layer rather than ArgoCD because it's a foundational dependency — moving it into a GitOps loop creates bootstrap deadlocks (PVC-bearing apps can't sync until the storage-classes Application syncs first).
 - **bank-vaults** is a single ApplicationSet bundling four sources: vault-operator chart, vault-secrets-webhook chart, raw manifests (Namespace, RBAC, **Vault CR**), and a git `$values` ref. The Vault CR's `externalConfig` declares k8s-auth roles (`hipster`, `vault-secrets-webhook`), the PKI secrets engine, and `startupSecrets` seeded into the KV engine — re-applied by the Configurer Job on every CR change.
 - **hipster** → **bank-vaults webhook**: pods/Secrets/ConfigMaps in the `hipster` namespace are annotated with `vault.security.banzaicloud.io/*`; the webhook resolves `vault:...` references at pod runtime via an injected vault-env binary (patterns 1–4) or via a consul-template + vault-agent sidecar pair reading PKI certs to disk (pattern 5).
 - **kube-prometheus-stack** / **grafana-loki**: multi-source Applications — a chart source plus a git `$values` ref. Grafana ingress + Loki datasource are wired via values; no cluster-Secret annotations needed.
@@ -123,7 +122,7 @@ All three ship under a single multi-source ApplicationSet, [argocd/applications/
 
 - `config.disable_mlock: true` — required under Raft (Raft mmaps log files; mlock on them OOMs the pod).
 - `serviceType: ClusterIP` + Traefik Ingress on `vault.local`.
-- 3-replica Raft HA; each pod gets its own PVC `vault-raft-*` backed by the shared `gp3` StorageClass from the `storage-classes` ApplicationSet.
+- 3-replica Raft HA; each pod gets its own PVC `vault-raft-*` backed by the shared `gp3` StorageClass (managed by `terraform/storage-classes.tf`).
 
 ### Drift handling (ApplicationSet `ignoreDifferences`)
 
